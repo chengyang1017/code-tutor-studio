@@ -3,6 +3,7 @@ const fs = require('node:fs/promises');
 const { watch } = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
+const { buildProjectTemplateFiles } = require('./project_templates.cjs');
 const { DartLspClient } = require('./dart_lsp.cjs');
 const { WindowsTtsBridge } = require('./windows_tts.cjs');
 
@@ -128,6 +129,55 @@ function createWindow() {
     void window.loadURL('http://127.0.0.1:5173');
   }
 }
+
+ipcMain.handle('project:close', async (event) => {
+  closeProjectFileWatcher(event.sender.id);
+  dartLspClient?.dispose();
+  dartLspClient = null;
+  currentProjectRoot = null;
+  currentProjectFiles = [];
+  currentGitHubProject = null;
+  persistentState.lastProjectRoot = '';
+  persistentState.lastOpenFile = '';
+  await savePersistentState();
+  return true;
+});
+
+ipcMain.handle('project:create-template', async (event, rawInput) => {
+  const name = typeof rawInput?.name === 'string' ? rawInput.name.trim() : '';
+  const template = typeof rawInput?.template === 'string' ? rawInput.template : '';
+  if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,59}$/.test(name)) {
+    throw new Error('项目名称只能包含英文、数字、横线或下划线。');
+  }
+  const files = buildProjectTemplateFiles(template, name);
+  const selection = await dialog.showOpenDialog({
+    title: '选择新项目的上级目录',
+    properties: ['openDirectory', 'createDirectory'],
+  });
+  if (selection.canceled || selection.filePaths.length === 0) return null;
+
+  const parent = path.resolve(selection.filePaths[0]);
+  const root = path.join(parent, name);
+  // mkdir without recursive protects existing directories from accidental edits.
+  try {
+    await fs.mkdir(root);
+  } catch (error) {
+    if (error?.code === 'EEXIST') throw new Error('项目文件夹已存在，请更换名称。');
+    throw error;
+  }
+  for (const [relativePath, content] of Object.entries(files)) {
+    const target = path.join(root, relativePath);
+    await fs.mkdir(path.dirname(target), { recursive: true });
+    await fs.writeFile(target, content, { encoding: 'utf8', flag: 'wx' });
+  }
+  closeProjectFileWatcher(event.sender.id);
+  currentGitHubProject = null;
+  const project = await loadProjectRoot(root);
+  persistentState.lastProjectRoot = root;
+  persistentState.lastOpenFile = '';
+  await savePersistentState();
+  return { ...project, lastOpenFile: '' };
+});
 
 ipcMain.handle('project:open', async () => {
   const result = await dialog.showOpenDialog({

@@ -30,6 +30,8 @@ function requireProjectRoot() {
 
 contextBridge.exposeInMainWorld('tutorIde', {
   openProject: () => invokeProjectSnapshot('project:open'),
+  closeProject: () => ipcRenderer.invoke('project:close').then(() => { activeProjectRoot = ''; return true; }),
+  createTemplateProject: (input) => invokeProjectSnapshot('project:create-template', input),
   restoreProject: () => invokeProjectSnapshot('project:restore'),
   openGitHubRepository: (url) => invokeProjectSnapshot('github:open-repository', url),
   readProjectFile: (relativePath) => ipcRenderer.invoke('project:read-file', relativePath),

@@ -1,4 +1,5 @@
 import './mentor_panel.css';
+import './robot_action_menu.css';
 import { reactTodoLessons } from './react_todo_course';
 
 type Snapshot = { rootPath: string; files: string[]; projectName: string };
@@ -280,6 +281,11 @@ function install(): boolean {
     button.dataset.active = String(show);
     workspace!.dataset.mentorOpen = String(show);
     document.documentElement.classList.toggle('mentor-popover-visible', show);
+    const speechBubble = document.getElementById('speech-bubble');
+    if (speechBubble) {
+      if (show) speechBubble.style.setProperty('display', 'none', 'important');
+      else speechBubble.style.removeProperty('display');
+    }
     button.setAttribute('aria-expanded', String(show));
     if (show) startTracking();
     else { window.cancelAnimationFrame(positionFrame); positionFrame = 0; lastPosition = ''; }
@@ -300,27 +306,109 @@ function install(): boolean {
   document.addEventListener('keydown', (event) => {
     if (event.key === 'Escape' && visible) { event.stopPropagation(); void toggle(false); }
   });
-  // Clicking the animated tutor opens the course selector.
+  // Clicking the robot now opens an action menu, rather than jumping
+  // straight into the course or competing with the older chat bubble.
   const robot = document.getElementById('tutor-character');
+  const actionMenu = document.createElement('div');
+  actionMenu.id = 'mentor-robot-actions';
+  actionMenu.className = 'mentor-robot-actions';
+  actionMenu.setAttribute('role', 'group');
+  actionMenu.setAttribute('aria-label', '机器人选项');
+  actionMenu.hidden = true;
+  actionMenu.innerHTML = `
+    <strong class="mentor-robot-actions-title">🤖 想做什么？</strong>
+    <button type="button" data-robot-action="create">✨ 创建项目</button>
+    <button type="button" data-robot-action="teach">📘 项目教学</button>
+    <button type="button" data-robot-action="explain">💡 解释当前代码</button>
+    <button type="button" data-robot-action="tour">🧭 理解项目</button>
+  `;
+  document.body.append(actionMenu);
+
+  const closeActionMenu = (): void => {
+    actionMenu.hidden = true;
+    robot?.setAttribute('aria-expanded', 'false');
+  };
+  const showActionMenu = (): void => {
+    actionMenu.hidden = false;
+    robot?.setAttribute('aria-expanded', 'true');
+    positionActionMenu();
+  };
+  const toggleActionMenu = (): void => {
+    if (actionMenu.hidden) showActionMenu();
+    else closeActionMenu();
+  };
+  function positionActionMenu(): void {
+    if (actionMenu.hidden || !robot) return;
+    const rect = robot.getBoundingClientRect();
+    const menuWidth = actionMenu.offsetWidth || 228;
+    const menuHeight = actionMenu.offsetHeight || 210;
+    const gap = 12;
+    const right = rect.right + gap;
+    const left = rect.left - menuWidth - gap;
+    const x = right + menuWidth <= window.innerWidth - 12
+      ? right : Math.max(12, left);
+    const y = Math.max(12, Math.min(window.innerHeight - menuHeight - 12,
+      rect.top + rect.height / 2 - 32));
+    actionMenu.style.left = `${Math.round(x)}px`;
+    actionMenu.style.top = `${Math.round(y)}px`;
+  }
+  robot?.setAttribute('aria-haspopup', 'true');
   robot?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
-      void toggle(true);
+      toggleActionMenu();
     }
+  });
+  actionMenu.addEventListener('click', (event) => {
+    const choice = (event.target as HTMLElement).closest<HTMLButtonElement>('[data-robot-action]');
+    if (!choice) return;
+    closeActionMenu();
+    switch (choice.dataset.robotAction) {
+      case 'create': {
+        // Reuse the existing welcome-page template flow; no duplicate CLI runner.
+        const home = document.getElementById('project-home');
+        if (!home) {
+          status('请先安装项目首页 Patch，再使用「创建项目」。');
+          return;
+        }
+        void toggle(false);
+        window.dispatchEvent(new Event('code-tutor-open-project-creator'));
+        break;
+      }
+      case 'teach':
+        void toggle(true);
+        break;
+      case 'explain':
+        document.getElementById('explain-current-code')?.click();
+        break;
+      case 'tour':
+        document.getElementById('ai-tour')?.click();
+        break;
+    }
+  });
+  document.addEventListener('pointerdown', (event) => {
+    if (!actionMenu.hidden && !actionMenu.contains(event.target as Node) &&
+        !(event.target instanceof Node && hitbox.contains(event.target)) &&
+        !(event.target instanceof Node && robot?.contains(event.target))) {
+      closeActionMenu();
+    }
+  });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape') closeActionMenu();
   });
   // A separate hit target sits over the actual robot. It is outside Monaco's
   // pointer-transparent tutoring layer and cannot be intercepted by its bubble.
   const hitbox = document.createElement('button');
   hitbox.type = 'button';
   hitbox.className = 'mentor-robot-hitbox';
-  hitbox.setAttribute('aria-label', '打开机器人项目教学');
-  hitbox.title = '🤖 点击打开项目教学';
+  hitbox.setAttribute('aria-label', '打开机器人选项');
+  hitbox.title = '🤖 点击选择操作';
   hitbox.hidden = true;
   document.body.append(hitbox);
   hitbox.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopPropagation();
-    void toggle(!visible);
+    toggleActionMenu();
   });
   let hitboxFrame = 0;
   function updateHitbox(): void {
@@ -328,6 +416,7 @@ function install(): boolean {
     const target = document.getElementById('tutor-character');
     if (!stage || !target || target.classList.contains('offscreen')) {
       hitbox.hidden = true;
+      closeActionMenu();
       return;
     }
     const rect = target.getBoundingClientRect();
@@ -338,6 +427,7 @@ function install(): boolean {
     const bottom = Math.min(rect.bottom, stageRect.bottom);
     if (right <= left || bottom <= top || rect.width <= 0 || rect.height <= 0) {
       hitbox.hidden = true;
+      closeActionMenu();
       return;
     }
     hitbox.hidden = false;
@@ -345,7 +435,8 @@ function install(): boolean {
     hitbox.style.top = top + 'px';
     hitbox.style.width = (right - left) + 'px';
     hitbox.style.height = (bottom - top) + 'px';
-    hitbox.setAttribute('aria-expanded', String(visible));
+    hitbox.setAttribute('aria-expanded', String(!actionMenu.hidden));
+    positionActionMenu();
   }
   function syncHitbox(): void {
     updateHitbox();

@@ -79,6 +79,8 @@ declare global {
   interface Window {
     tutorIde: {
       openProject(): Promise<ProjectSnapshot | null>;
+      closeProject?(): Promise<boolean>;
+      createTemplateProject?(input: { name: string; template: string }): Promise<ProjectSnapshot | null>;
       openGitHubRepository?(url: string): Promise<{
         rootPath: string;
         projectName: string;

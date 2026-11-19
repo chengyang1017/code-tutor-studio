@@ -1,0 +1,36 @@
+/* Floating choices attached to the animated robot. */
+.mentor-robot-actions {
+  position: fixed;
+  z-index: 1250;
+  width: 228px;
+  box-sizing: border-box;
+  padding: 10px;
+  border-radius: 14px;
+  border: 1px solid rgba(140, 157, 190, .38);
+  background: #202636;
+  color: #f6f7fb;
+  box-shadow: 0 18px 44px rgba(0, 0, 0, .46);
+}
+.mentor-robot-actions[hidden] { display: none !important; }
+.mentor-robot-actions-title {
+  display: block;
+  padding: 7px 9px 10px;
+  font-size: 13px;
+}
+.mentor-robot-actions button {
+  display: block;
+  width: 100%;
+  padding: 10px;
+  margin: 2px 0;
+  text-align: left;
+  border: 0;
+  border-radius: 8px;
+  background: transparent;
+  color: inherit;
+  cursor: pointer;
+}
+.mentor-robot-actions button:hover,
+.mentor-robot-actions button:focus-visible {
+  background: rgba(120, 139, 255, .22);
+  outline-offset: -2px;
+}

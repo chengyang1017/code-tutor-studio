@@ -1,4 +1,5 @@
 import './styles.css';
+import './project/project_home';
 import './mentor/mentor_panel';
 import './ui/runtime_i18n';
 import './tablet.css';

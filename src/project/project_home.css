@@ -1,0 +1,31 @@
+.project-home {
+  position: fixed;
+  inset: 40px 0 0;
+  z-index: 900;
+  overflow-y: auto;
+  background: radial-gradient(ellipse at 50% 0, #27314a 0, #151a24 50%, #111318 100%);
+  color: #e8edf7;
+  padding: 48px 24px 72px;
+}
+.project-home[hidden], .project-home-template[hidden] { display: none !important; }
+.project-home-inner { max-width: 900px; margin: 0 auto; }
+.project-home-heading { text-align: center; margin: 26px 0 36px; }
+.project-home-brand { color: #8ba9ff; font-size: 12px; font-weight: 700; letter-spacing: .18em; }
+.project-home-heading h1 { font-size: clamp(28px, 4vw, 40px); margin: 16px 0 8px; }
+.project-home-heading p, .project-home-help { color: #aab4c5; font-size: 13px; }
+.project-home-actions { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 16px; }
+.project-home-actions button { padding: 22px; font-size: 16px; border: 1px solid #465478; border-radius: 15px; background: #252d40; color: white; }
+.project-home-actions button:hover, .project-home-options label:hover { background: #313d57; }
+.project-home-template { margin-top: 24px; padding: 22px; border: 1px solid #38455c; border-radius: 15px; background: #1b2231; }
+.project-home-section-title { font-size: 16px; font-weight: 700; margin-bottom: 15px; }
+.project-home-options { display: grid; grid-template-columns: repeat(2, minmax(0,1fr)); gap: 12px; }
+.project-home-options label { display: grid; grid-template-columns: auto 1fr; column-gap: 10px; row-gap: 4px; align-items: start; background: #242d40; padding: 14px; border: 1px solid #39465e; border-radius: 11px; cursor: pointer; }
+.project-home-options label:has(input:checked) { border-color: #8094ff; background: #2a3552; }
+.project-home-options input { grid-row: span 2; margin-top: 4px; accent-color: #8b9aff; }
+.project-home-options strong { font-size: 14px; }
+.project-home-options span { color: #aab4c5; font-size: 12px; }
+.project-home-name { display: flex; flex-direction: column; gap: 8px; margin-top: 20px; font-size: 13px; }
+.project-home-name input { border: 1px solid #56617b; border-radius: 8px; background: #121927; color: white; padding: 12px; font-size: 14px; }
+.project-home-primary { padding: 11px 18px; background: #6656d9; color: #fff; border: 0; }
+.project-home-status { min-height: 24px; margin-top: 18px; font-size: 13px; color: #d7c7a2; }
+@media (max-width: 650px) { .project-home-actions, .project-home-options { grid-template-columns: 1fr; } .project-home { padding: 24px 15px 50px; } }
