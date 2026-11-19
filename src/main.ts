@@ -663,6 +663,34 @@ const characterController = new CharacterController(
   },
   voiceController,
 );
+type MentorFocusDetail = { filePath: string; line: number; speech: string };
+let mentorFocusSequence = 0;
+window.addEventListener('ai-ide-mentor-focus', (event) => {
+  const detail = (event as CustomEvent<MentorFocusDetail>).detail;
+  if (!detail || !isRealProject || !detail.filePath || !projectFiles.includes(detail.filePath)) {
+    return;
+  }
+  const seq = ++mentorFocusSequence;
+  void (async () => {
+    try {
+      const target = Math.max(1, Math.floor(detail.line || 1));
+      if (seq !== mentorFocusSequence) return;
+      await characterController.moveTo({
+        filePath: detail.filePath,
+        line: target,
+        column: 1,
+        action: 'point',
+        speech: detail.speech.slice(0, 500),
+        voice: false,
+      });
+    } catch (error) {
+      if (seq === mentorFocusSequence) {
+        tutorStatus.textContent = error instanceof Error ? error.message : '无法定位教学代码';
+      }
+    }
+  })();
+});
+
 
 let projectFiles: string[] = demoFiles.map((file) => file.path);
 let projectDirectories: string[] = [];
