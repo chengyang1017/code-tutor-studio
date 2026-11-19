@@ -163,7 +163,7 @@ function install(): boolean {
     visible = show;
     panel.hidden = !visible;
     button.dataset.active = String(show);
-    workspace.dataset.mentorOpen = String(show);
+    workspace!.dataset.mentorOpen = String(show);
     if (show) {
       try { await syncProject(); }
       catch { currentRoot = ''; }
