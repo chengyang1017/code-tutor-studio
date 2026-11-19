@@ -302,13 +302,6 @@ function install(): boolean {
   });
   // Clicking the animated tutor opens the course selector.
   const robot = document.getElementById('tutor-character');
-  robot?.addEventListener('click', (event) => {
-    // Keyboard-generated clicks have detail=0; pointer clicks are handled at capture phase.
-    if (event instanceof MouseEvent && event.detail !== 0) return;
-    event.preventDefault();
-    event.stopImmediatePropagation();
-    void toggle(!visible);
-  }, true);
   robot?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
       event.preventDefault();
