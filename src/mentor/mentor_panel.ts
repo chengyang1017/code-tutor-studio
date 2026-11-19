@@ -1,0 +1,278 @@
+import './mentor_panel.css';
+import { reactTodoLessons } from './react_todo_course';
+
+type Snapshot = { rootPath: string; files: string[]; projectName: string };
+type Api = {
+  restoreProject: () => Promise<Snapshot | null>;
+  readProjectFile: (path: string) => Promise<{ content: string }>;
+};
+
+const STORAGE_KEY = 'code-tutor-project-mentor-v1';
+
+function status(message: string): void {
+  const element = document.getElementById('tutor-status');
+  if (element) element.textContent = message;
+}
+
+function fileJump(path: string): void {
+  window.dispatchEvent(new CustomEvent('ai-ide-reader-jump-request', {
+    detail: { filePath: path, line: 1, column: 1, source: 'project-mentor' },
+  }));
+}
+
+function install(): boolean {
+  const commandBar = document.querySelector<HTMLElement>('.commandbar');
+  const workspace = document.querySelector<HTMLElement>('.workspace');
+  if (!commandBar || !workspace || !window.tutorIde?.restoreProject) return false;
+  if (document.getElementById('mentor-course-panel')) return true;
+
+  const button = document.createElement('button');
+  button.type = 'button';
+  button.id = 'mentor-course-toggle';
+  button.textContent = '🤖 项目教学';
+  button.title = '从项目创建开始，逐步学习源码';
+  const group = document.createElement('div');
+  group.className = 'command-group';
+  group.append(button);
+  commandBar.append(group);
+
+  const panel = document.createElement('aside');
+  panel.id = 'mentor-course-panel';
+  panel.className = 'mentor-course-panel';
+  panel.hidden = true;
+  panel.innerHTML = `
+    <div class="mentor-course-heading">
+      <div><strong>🤖 项目教学</strong><small>从零创建 · 逐步编码 · 验证成果</small></div>
+      <button type="button" data-mentor-close aria-label="关闭项目教学">×</button>
+    </div>
+    <div class="mentor-course-body">
+      <label for="mentor-course-select">选择项目</label>
+      <select id="mentor-course-select">
+        <option value="react-todo">React + TypeScript Todo List</option>
+        <option value="flutter-todo" disabled>Flutter Todo（即将支持）</option>
+        <option value="oms" disabled>订单管理系统（即将支持）</option>
+      </select>
+      <div class="mentor-course-progress">
+        <span data-mentor-progress>第 1 步</span>
+        <progress data-mentor-meter max="8" value="0"></progress>
+      </div>
+      <h3 data-mentor-title></h3>
+      <p data-mentor-objective></p>
+      <div class="mentor-course-message" data-mentor-message role="status" aria-live="polite"></div>
+      <h4>机器人讲解</h4>
+      <p data-mentor-explanation></p>
+      <h4>你的任务</h4>
+      <pre data-mentor-instruction></pre>
+      <div class="mentor-course-checks" data-mentor-checks></div>
+      <div class="mentor-course-actions">
+        <button type="button" data-mentor-open>定位文件</button>
+        <button type="button" data-mentor-hint>查看提示</button>
+        <button type="button" data-mentor-verify class="primary-button">检查代码</button>
+      </div>
+      <div class="mentor-course-actions">
+        <button type="button" data-mentor-back>上一步</button>
+        <button type="button" data-mentor-pause>暂停</button>
+        <button type="button" data-mentor-next class="primary-button" disabled>下一步 →</button>
+      </div>
+    </div>
+  `;
+  workspace.append(panel);
+
+  const get = <T extends HTMLElement>(selector: string): T => {
+    const element = panel.querySelector<T>(selector);
+    if (!element) throw new Error('Missing mentor control: ' + selector);
+    return element;
+  };
+  const progress = get<HTMLElement>('[data-mentor-progress]');
+  const meter = get<HTMLProgressElement>('[data-mentor-meter]');
+  const title = get<HTMLElement>('[data-mentor-title]');
+  const objective = get<HTMLElement>('[data-mentor-objective]');
+  const message = get<HTMLElement>('[data-mentor-message]');
+  const explanation = get<HTMLElement>('[data-mentor-explanation]');
+  const instruction = get<HTMLElement>('[data-mentor-instruction]');
+  const checks = get<HTMLElement>('[data-mentor-checks]');
+  const back = get<HTMLButtonElement>('[data-mentor-back]');
+  const next = get<HTMLButtonElement>('[data-mentor-next]');
+  const pause = get<HTMLButtonElement>('[data-mentor-pause]');
+  const verify = get<HTMLButtonElement>('[data-mentor-verify]');
+  const open = get<HTMLButtonElement>('[data-mentor-open]');
+  const hint = get<HTMLButtonElement>('[data-mentor-hint]');
+  const close = get<HTMLButtonElement>('[data-mentor-close]');
+
+  let step = 0;
+  let passed = false;
+  let paused = false;
+  let checking = false;
+  let currentRoot = '';
+  let visible = false;
+
+  function key(root: string): string { return STORAGE_KEY + ':' + root; }
+  function persist(): void {
+    if (currentRoot) {
+      try { localStorage.setItem(key(currentRoot), JSON.stringify({ step, passed, paused })); }
+      catch { /* storage may be unavailable */ }
+    }
+  }
+
+  async function syncProject(): Promise<Snapshot | null> {
+    const snapshot = await (window.tutorIde as Api).restoreProject();
+    const root = snapshot?.rootPath ?? '';
+    if (root !== currentRoot) {
+      currentRoot = root;
+      step = 0; passed = false; paused = false;
+      if (root) {
+        try {
+          const saved = JSON.parse(localStorage.getItem(key(root)) ?? 'null') as
+            { step?: number; passed?: boolean; paused?: boolean } | null;
+          if (saved && Number.isInteger(saved.step) && saved.step! >= 0 && saved.step! < reactTodoLessons.length) {
+            step = saved.step!; passed = false; paused = Boolean(saved.paused);
+            // A previously passed step must always be re-verified after reopening a project.
+          }
+        } catch { /* ignore invalid saved state */ }
+      }
+    }
+    return snapshot;
+  }
+
+  function render(): void {
+    const lesson = reactTodoLessons[step]!;
+    progress.textContent = '第 ' + (step + 1) + ' / ' + reactTodoLessons.length + ' 步';
+    meter.max = reactTodoLessons.length;
+    meter.value = step + Number(passed);
+    title.textContent = lesson.title;
+    objective.textContent = lesson.objective;
+    explanation.textContent = lesson.explanation;
+    instruction.textContent = lesson.instruction;
+    checks.replaceChildren();
+    lesson.checks.forEach((check) => {
+      const row = document.createElement('div');
+      row.textContent = '○ ' + check.label;
+      checks.append(row);
+    });
+    back.disabled = step === 0 || checking;
+    next.disabled = !passed || paused || checking || step === reactTodoLessons.length - 1;
+    verify.disabled = paused || checking;
+    open.disabled = !currentRoot;
+    pause.textContent = paused ? '继续课程' : '暂停';
+    message.textContent = paused ? '课程已暂停' : passed ? '✓ 本步验证通过，可以进入下一步' :
+      currentRoot ? '请完成任务并保存文件，然后点击检查代码。' :
+      '首先在终端创建项目，再点击顶部「打开项目」选择项目文件夹。';
+  }
+
+  async function toggle(show: boolean): Promise<void> {
+    visible = show;
+    panel.hidden = !visible;
+    button.dataset.active = String(show);
+    workspace.dataset.mentorOpen = String(show);
+    if (show) {
+      try { await syncProject(); }
+      catch { currentRoot = ''; }
+      render();
+    }
+  }
+
+  button.addEventListener('click', () => { void toggle(!visible); });
+  close.addEventListener('click', () => { void toggle(false); });
+  // Robot remains a code-navigation control; Alt+click opens its course chooser.
+  document.getElementById('tutor-character')?.addEventListener('click', (event) => {
+    if (!(event instanceof MouseEvent) || !event.altKey) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void toggle(true);
+  }, true);
+
+  get<HTMLSelectElement>('#mentor-course-select').addEventListener('change', () => {
+    step = 0; passed = false; persist(); render();
+  });
+  hint.addEventListener('click', () => { message.textContent = reactTodoLessons[step]!.hint; });
+  pause.addEventListener('click', () => { paused = !paused; persist(); render(); });
+
+  back.addEventListener('click', () => {
+    if (step <= 0 || checking) return;
+    step--; passed = false; persist(); render();
+  });
+  next.addEventListener('click', () => {
+    if (!passed || paused || checking || step >= reactTodoLessons.length - 1) return;
+    step++; passed = false; persist(); render();
+  });
+  open.addEventListener('click', () => {
+    if (!currentRoot) return;
+    fileJump(reactTodoLessons[step]!.file);
+  });
+
+  verify.addEventListener('click', async () => {
+    if (checking || paused) return;
+    checking = true; passed = false; render();
+    try {
+      const snapshot = await syncProject();
+      const lesson = reactTodoLessons[step]!;
+      if (!snapshot) {
+        message.textContent = '还没有真实项目。先创建并打开 React 项目。';
+        return;
+      }
+      if (!snapshot.files.includes(lesson.file)) {
+        message.textContent = '没有找到 ' + lesson.file + '。请检查是否打开了正确项目。';
+        return;
+      }
+      if (document.querySelector<HTMLElement>('#editor-tab-dot')?.dataset.dirty === 'true') {
+        message.textContent = '请先 Ctrl+S 保存正在编辑的文件，再检查。';
+        return;
+      }
+      const result = await window.tutorIde.readProjectFile(lesson.file);
+      const failed = lesson.checks.filter((check) => !check.test(result.content));
+      checks.replaceChildren();
+      lesson.checks.forEach((check) => {
+        const row = document.createElement('div');
+        const ok = !failed.includes(check);
+        row.textContent = (ok ? '✓ ' : '✗ ') + check.label;
+        row.dataset.passed = String(ok);
+        checks.append(row);
+      });
+      passed = failed.length === 0;
+      message.textContent = passed ? '✓ 本步验证通过！' :
+        '有 ' + failed.length + ' 项尚未通过，请查看上方检查结果和提示。';
+      status(passed ? '🤖 课程步骤验证通过' : '🤖 课程尚有未完成项');
+    } catch (error) {
+      message.textContent = error instanceof Error ? error.message : '检查失败';
+    } finally {
+      checking = false; persist();
+      // Keep individual check results visible instead of clearing them with render().
+      next.disabled = !passed || paused || step === reactTodoLessons.length - 1;
+      verify.disabled = paused;
+      back.disabled = step === 0;
+      meter.value = step + Number(passed);
+    }
+  });
+
+  // Saved code can be changed after a successful check: invalidate before advancing.
+  window.tutorIde.onProjectFileChanged?.((change) => {
+    if (change.path === reactTodoLessons[step]?.file && passed) {
+      passed = false; persist();
+      if (visible) render();
+    }
+  });
+  document.querySelector('#editor-tab-dot') &&
+    new MutationObserver(() => {
+      if (passed && document.querySelector<HTMLElement>('#editor-tab-dot')?.dataset.dirty === 'true' &&
+          document.getElementById('active-file')?.textContent?.trim() === reactTodoLessons[step]?.file) {
+        passed = false; persist(); if (visible) render();
+      }
+    }).observe(document.querySelector('#editor-tab-dot')!, { attributes: true, attributeFilter: ['data-dirty'] });
+
+  window.addEventListener('android-project-snapshot', () => {
+    void syncProject().then(() => { if (visible) render(); });
+  });
+  return true;
+}
+
+function bootstrap(): void {
+  if (install()) return;
+  const observer = new MutationObserver(() => {
+    if (install()) observer.disconnect();
+  });
+  observer.observe(document.documentElement, { childList: true, subtree: true });
+}
+
+if (document.readyState === 'loading') {
+  document.addEventListener('DOMContentLoaded', bootstrap, { once: true });
+} else bootstrap();
