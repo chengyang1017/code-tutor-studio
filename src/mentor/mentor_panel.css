@@ -26,3 +26,46 @@
     animation: none !important;
   }
 }
+
+/* Robot-anchored lesson card; never occupy a fixed workspace column. */
+.mentor-course-panel {
+  position: fixed !important;
+  inset: auto !important;
+  width: min(380px, calc(100vw - 24px)) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: min(520px, calc(100dvh - 24px)) !important;
+  max-height: calc(100dvh - 24px) !important;
+  border: 1px solid rgba(139,164,205,.42) !important;
+  border-radius: 16px;
+  box-shadow: 0 14px 38px rgba(0,0,0,.48);
+  z-index: 1200 !important;
+  overflow: hidden;
+  transform-origin: 20% 25%;
+  animation: mentor-card-appear 180ms ease-out;
+}
+.mentor-course-panel[data-side="left"] { transform-origin: 80% 25%; }
+.mentor-course-panel .mentor-course-heading { padding: 13px 15px 10px; }
+.mentor-course-panel .mentor-course-body { padding: 12px 15px; gap: 8px; }
+.mentor-course-panel .mentor-course-body h3 { font-size: 15px; }
+.mentor-course-panel .mentor-course-body h4 { margin: 5px 0 0; }
+.mentor-course-panel .mentor-course-body pre { max-height: 115px; overflow: auto; }
+.mentor-popover-visible #speech-bubble { opacity: 0 !important; visibility: hidden !important; }
+@keyframes mentor-card-appear {
+  from { opacity: 0; scale: .96; }
+  to { opacity: 1; scale: 1; }
+}
+@media (max-width: 900px) {
+  .mentor-course-panel {
+    position: fixed !important;
+    right: auto !important;
+    bottom: auto !important;
+    top: auto;
+    left: auto;
+    width: min(360px, calc(100vw - 24px)) !important;
+    box-shadow: 0 14px 38px rgba(0,0,0,.48) !important;
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .mentor-course-panel { animation: none !important; }
+}
