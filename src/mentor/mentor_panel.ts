@@ -16,18 +16,18 @@ function status(message: string): void {
 
 const FOCUS_BY_LESSON: Record<string, RegExp> = {
   setup: /"scripts"|"dependencies"/,
-  component: /function\\s+App|const\\s+App|<h1/,
-  state: /useState|function\\s+App/,
-  input: /<input|setInput|function\\s+App/,
-  add: /setTasks|<button|function\\s+App/,
-  list: /\\.map\\s*\\(|function\\s+App/,
-  remove: /\\.filter\\s*\\(|function\\s+App/,
+  component: /function\s+App|const\s+App|<h1/,
+  state: /useState|function\s+App/,
+  input: /<input|setInput|function\s+App/,
+  add: /setTasks|<button|function\s+App/,
+  list: /\.map\s*\(|function\s+App/,
+  remove: /\.filter\s*\(|function\s+App/,
   style: /button|input|li/,
 };
 
 function focusLine(id: string, content: string): number {
   const pattern = FOCUS_BY_LESSON[id];
-  const lines = content.split(/\\r?\\n/);
+  const lines = content.split(/\r?\n/);
   const found = lines.findIndex((line) => pattern?.test(line));
   return Math.max(1, found + 1);
 }
