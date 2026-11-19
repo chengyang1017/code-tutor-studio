@@ -14,9 +14,27 @@ function status(message: string): void {
   if (element) element.textContent = message;
 }
 
-function fileJump(path: string): void {
-  window.dispatchEvent(new CustomEvent('ai-ide-reader-jump-request', {
-    detail: { filePath: path, line: 1, column: 1, source: 'project-mentor' },
+const FOCUS_BY_LESSON: Record<string, RegExp> = {
+  setup: /"scripts"|"dependencies"/,
+  component: /function\\s+App|const\\s+App|<h1/,
+  state: /useState|function\\s+App/,
+  input: /<input|setInput|function\\s+App/,
+  add: /setTasks|<button|function\\s+App/,
+  list: /\\.map\\s*\\(|function\\s+App/,
+  remove: /\\.filter\\s*\\(|function\\s+App/,
+  style: /button|input|li/,
+};
+
+function focusLine(id: string, content: string): number {
+  const pattern = FOCUS_BY_LESSON[id];
+  const lines = content.split(/\\r?\\n/);
+  const found = lines.findIndex((line) => pattern?.test(line));
+  return Math.max(1, found + 1);
+}
+
+function robotMove(path: string, line: number, speech: string): void {
+  window.dispatchEvent(new CustomEvent('ai-ide-mentor-focus', {
+    detail: { filePath: path, line, speech },
   }));
 }
 
@@ -105,6 +123,32 @@ function install(): boolean {
   let checking = false;
   let currentRoot = '';
   let visible = false;
+  let animationSequence = 0;
+
+  async function animateStep(speech?: string): Promise<void> {
+    const sequence = ++animationSequence;
+    if (!visible || paused) return;
+    const lesson = reactTodoLessons[step]!;
+    const message = speech ?? ('第 ' + (step + 1) + ' 步：' + lesson.title + '。' + lesson.objective);
+    try {
+      const snapshot = await syncProject();
+      if (sequence !== animationSequence || !visible || paused) return;
+      if (!snapshot || !snapshot.files.includes(lesson.file)) {
+        const hintMessage = !snapshot ? '先按照教学面板的命令创建项目。' : '请先创建 ' + lesson.file + '。';
+        const text = message + hintMessage;
+        status('🤖 ' + hintMessage);
+        panel.classList.remove('mentor-animate');
+        void panel.offsetWidth;
+        panel.classList.add('mentor-animate');
+        return;
+      }
+      const source = await window.tutorIde.readProjectFile(lesson.file);
+      if (sequence !== animationSequence || !visible || paused) return;
+      robotMove(lesson.file, focusLine(lesson.id, source.content), message);
+    } catch {
+      // Explain in the panel if a file is unavailable; never block editing.
+    }
+  }
 
   function key(root: string): string { return STORAGE_KEY + ':' + root; }
   function persist(): void {
@@ -168,6 +212,9 @@ function install(): boolean {
       try { await syncProject(); }
       catch { currentRoot = ''; }
       render();
+      void animateStep();
+    } else {
+      animationSequence++;
     }
   }
 
@@ -190,20 +237,30 @@ function install(): boolean {
   get<HTMLSelectElement>('#mentor-course-select').addEventListener('change', () => {
     step = 0; passed = false; persist(); render();
   });
-  hint.addEventListener('click', () => { message.textContent = reactTodoLessons[step]!.hint; });
-  pause.addEventListener('click', () => { paused = !paused; persist(); render(); });
+  hint.addEventListener('click', () => {
+    const lesson = reactTodoLessons[step]!;
+    message.textContent = lesson.hint;
+    void animateStep('提示：' + lesson.hint);
+  });
+  pause.addEventListener('click', () => {
+    paused = !paused; persist(); render();
+    if (paused) animationSequence++;
+    else void animateStep('我们继续学习：' + reactTodoLessons[step]!.title);
+  });
 
   back.addEventListener('click', () => {
     if (step <= 0 || checking) return;
     step--; passed = false; persist(); render();
+    void animateStep();
   });
   next.addEventListener('click', () => {
     if (!passed || paused || checking || step >= reactTodoLessons.length - 1) return;
     step++; passed = false; persist(); render();
+    void animateStep();
   });
   open.addEventListener('click', () => {
     if (!currentRoot) return;
-    fileJump(reactTodoLessons[step]!.file);
+    void animateStep('请看这里：' + reactTodoLessons[step]!.explanation);
   });
 
   verify.addEventListener('click', async () => {
@@ -238,6 +295,9 @@ function install(): boolean {
       message.textContent = passed ? '✓ 本步验证通过！' :
         '有 ' + failed.length + ' 项尚未通过，请查看上方检查结果和提示。';
       status(passed ? '🤖 课程步骤验证通过' : '🤖 课程尚有未完成项');
+      void animateStep(passed
+        ? '做得好！这一关已通过。你可以点击下一步。'
+        : '这里还有需要完成的内容：' + failed.map((check) => check.label).join('、') + '。点击查看提示，我会继续引导你。');
     } catch (error) {
       message.textContent = error instanceof Error ? error.message : '检查失败';
     } finally {
