@@ -156,7 +156,7 @@ app.innerHTML = `
 
           <div id="tutor-surface" class="tutor-surface" aria-label="AI Tutor activity layer">
             <div class="speech-bubble" id="speech-bubble"></div>
-            <div id="tutor-character" class="tutor-character offscreen" data-action="jump" data-placement="code-end">
+            <div id="tutor-character" class="tutor-character offscreen" role="button" tabindex="0" aria-label="打开机器人项目教学" title="点击开始项目教学" data-action="jump" data-placement="code-end">
               <div class="robot-shadow"></div>
               <div class="robot">
                 <div class="antenna"><span></span></div>
