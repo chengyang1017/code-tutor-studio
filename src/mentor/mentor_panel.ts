@@ -303,9 +303,11 @@ function install(): boolean {
   // Clicking the animated tutor opens the course selector.
   const robot = document.getElementById('tutor-character');
   robot?.addEventListener('click', (event) => {
+    // Keyboard-generated clicks have detail=0; pointer clicks are handled at capture phase.
+    if (event instanceof MouseEvent && event.detail !== 0) return;
     event.preventDefault();
     event.stopImmediatePropagation();
-    void toggle(true);
+    void toggle(!visible);
   }, true);
   robot?.addEventListener('keydown', (event) => {
     if (event.key === 'Enter' || event.key === ' ') {
@@ -313,6 +315,31 @@ function install(): boolean {
       void toggle(true);
     }
   });
+  // The animation layer deliberately allows mouse events through to Monaco.
+  // Capture clicks based on the robot's visible rectangle so a transparent
+  // tutor surface (or an overlapping speech bubble) cannot swallow the action.
+  document.addEventListener('pointerdown', (event) => {
+    if (!robot || event.button !== 0 || robot.classList.contains('offscreen')) return;
+    const bounds = robot.getBoundingClientRect();
+    if (bounds.width === 0 || bounds.height === 0) return;
+    if (
+      event.clientX < bounds.left || event.clientX > bounds.right ||
+      event.clientY < bounds.top || event.clientY > bounds.bottom
+    ) return;
+    const stage = document.getElementById('editor-stage');
+    if (!stage) return;
+    const stageBounds = stage.getBoundingClientRect();
+    if (
+      event.clientX < stageBounds.left || event.clientX > stageBounds.right ||
+      event.clientY < stageBounds.top || event.clientY > stageBounds.bottom
+    ) return;
+    // Do not steal interactions from an open teaching card or other dialogs.
+    const hit = document.elementFromPoint(event.clientX, event.clientY);
+    if (hit?.closest('#mentor-course-panel, .modal-backdrop, .settings-dialog')) return;
+    event.preventDefault();
+    event.stopImmediatePropagation();
+    void toggle(!visible);
+  }, true);
 
   get<HTMLSelectElement>('#mentor-course-select').addEventListener('change', () => {
     step = 0; passed = false; persist(); render();
