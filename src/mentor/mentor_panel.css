@@ -69,3 +69,15 @@
 @media (prefers-reduced-motion: reduce) {
   .mentor-course-panel { animation: none !important; }
 }
+
+/* The tutor surface stays click-through for Monaco; the small robot remains clickable. */
+#tutor-surface > #tutor-character:not(.offscreen) {
+  pointer-events: auto !important;
+  cursor: pointer !important;
+}
+#tutor-surface > #tutor-character:not(.offscreen):hover .robot {
+  filter: drop-shadow(0 0 8px rgba(100, 175, 255, .6));
+}
+#tutor-surface > #speech-bubble {
+  pointer-events: none;
+}
