@@ -81,3 +81,20 @@
 #tutor-surface > #speech-bubble {
   pointer-events: none;
 }
+
+/* Dedicated floating input target, aligned precisely with the animated robot. */
+.mentor-robot-hitbox {
+  position: fixed !important;
+  z-index: 1100 !important;
+  appearance: none;
+  background: transparent !important;
+  border: 0 !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  border-radius: 8px;
+  cursor: pointer !important;
+  touch-action: manipulation;
+}
+.mentor-robot-hitbox[hidden] { display: none !important; }
+.mentor-robot-hitbox:hover { outline: 2px solid rgba(114,177,255,.45); }
+.mentor-robot-hitbox:focus-visible { outline: 3px solid #72b1ff !important; outline-offset: 2px; }

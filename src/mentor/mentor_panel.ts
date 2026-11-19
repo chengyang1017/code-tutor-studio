@@ -308,31 +308,54 @@ function install(): boolean {
       void toggle(true);
     }
   });
-  // The animation layer deliberately allows mouse events through to Monaco.
-  // Capture clicks based on the robot's visible rectangle so a transparent
-  // tutor surface (or an overlapping speech bubble) cannot swallow the action.
-  document.addEventListener('pointerdown', (event) => {
-    if (!robot || event.button !== 0 || robot.classList.contains('offscreen')) return;
-    const bounds = robot.getBoundingClientRect();
-    if (bounds.width === 0 || bounds.height === 0) return;
-    if (
-      event.clientX < bounds.left || event.clientX > bounds.right ||
-      event.clientY < bounds.top || event.clientY > bounds.bottom
-    ) return;
-    const stage = document.getElementById('editor-stage');
-    if (!stage) return;
-    const stageBounds = stage.getBoundingClientRect();
-    if (
-      event.clientX < stageBounds.left || event.clientX > stageBounds.right ||
-      event.clientY < stageBounds.top || event.clientY > stageBounds.bottom
-    ) return;
-    // Do not steal interactions from an open teaching card or other dialogs.
-    const hit = document.elementFromPoint(event.clientX, event.clientY);
-    if (hit?.closest('#mentor-course-panel, .modal-backdrop, .settings-dialog')) return;
+  // A separate hit target sits over the actual robot. It is outside Monaco's
+  // pointer-transparent tutoring layer and cannot be intercepted by its bubble.
+  const hitbox = document.createElement('button');
+  hitbox.type = 'button';
+  hitbox.className = 'mentor-robot-hitbox';
+  hitbox.setAttribute('aria-label', '打开机器人项目教学');
+  hitbox.title = '🤖 点击打开项目教学';
+  hitbox.hidden = true;
+  document.body.append(hitbox);
+  hitbox.addEventListener('click', (event) => {
     event.preventDefault();
-    event.stopImmediatePropagation();
+    event.stopPropagation();
     void toggle(!visible);
-  }, true);
+  });
+  let hitboxFrame = 0;
+  function updateHitbox(): void {
+    const stage = document.getElementById('editor-stage');
+    const target = document.getElementById('tutor-character');
+    if (!stage || !target || target.classList.contains('offscreen')) {
+      hitbox.hidden = true;
+      return;
+    }
+    const rect = target.getBoundingClientRect();
+    const stageRect = stage.getBoundingClientRect();
+    const left = Math.max(rect.left, stageRect.left);
+    const right = Math.min(rect.right, stageRect.right);
+    const top = Math.max(rect.top, stageRect.top);
+    const bottom = Math.min(rect.bottom, stageRect.bottom);
+    if (right <= left || bottom <= top || rect.width <= 0 || rect.height <= 0) {
+      hitbox.hidden = true;
+      return;
+    }
+    hitbox.hidden = false;
+    hitbox.style.left = left + 'px';
+    hitbox.style.top = top + 'px';
+    hitbox.style.width = (right - left) + 'px';
+    hitbox.style.height = (bottom - top) + 'px';
+    hitbox.setAttribute('aria-expanded', String(visible));
+  }
+  function syncHitbox(): void {
+    updateHitbox();
+    hitboxFrame = window.requestAnimationFrame(syncHitbox);
+  }
+  hitboxFrame = window.requestAnimationFrame(syncHitbox);
+  window.addEventListener('beforeunload', () => {
+    window.cancelAnimationFrame(hitboxFrame);
+    hitbox.remove();
+  }, { once: true });
 
   get<HTMLSelectElement>('#mentor-course-select').addEventListener('change', () => {
     step = 0; passed = false; persist(); render();
