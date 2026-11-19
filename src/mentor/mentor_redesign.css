@@ -1,0 +1,117 @@
+/* Docked mentor redesign, loaded after earlier patches. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel:not([hidden]) {
+  display: block !important;
+  position: absolute !important;
+  inset: 0 0 0 auto !important;
+  width: var(--mentor-panel-percent, 50%) !important;
+  height: 100% !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: auto;
+  scrollbar-color: #66758f #171d29;
+  border-radius: 0 !important;
+  padding: 0 !important;
+  scroll-behavior: auto;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel::-webkit-scrollbar { width: 11px; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel::-webkit-scrollbar-track { background: #171d29; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel::-webkit-scrollbar-thumb { background: #64738b; border: 2px solid #171d29; border-radius: 10px; }
+/* A hidden tab must remain hidden even when old CSS forces display:flex/block. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel [hidden],
+#editor-stage.mentor-split-enabled > #mentor-course-panel > [hidden],
+#editor-stage.mentor-split-enabled > #mentor-course-panel.mentor-unified[data-unified-tab]:not([data-unified-tab="teach"]) > .mentor-course-body,
+#editor-stage.mentor-split-enabled > #mentor-course-panel.mentor-unified[data-unified-tab="teach"] > .mentor-unified-content {
+  display: none !important;
+}
+/* Reset ALL nested scroll zones and sticky/fixed action rows. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-heading,
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-tabs,
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-body,
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-content,
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view,
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-step,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-ai-flow,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-unified-content > section,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-sticky-actions,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-actions,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-ai-questions {
+  position: static !important;
+  inset: auto !important;
+  flex: none !important;
+  height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow: visible !important;
+  box-shadow: none !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-heading {
+  padding: 15px 22px 12px !important;
+  border-bottom: 1px solid #303b4c;
+  background: #1c2432;
+  align-items: center;
+  gap: 12px;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-heading strong { font-size: 16px !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-tabs {
+  padding: 12px 20px !important;
+  border-bottom: 1px solid #303b4c;
+  background: #1a2130;
+  display: grid !important;
+  grid-template-columns: repeat(auto-fit, minmax(115px, 1fr)) !important;
+  gap: 8px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-tabs button {
+  min-width: 0 !important;
+  margin: 0 !important;
+  padding: 10px 8px !important;
+  border-radius: 8px !important;
+  font-size: 14px !important;
+  white-space: nowrap;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-body,
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-content {
+  padding: 18px 22px 26px !important;
+  gap: 12px !important;
+  width: 100%;
+  box-sizing: border-box;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-body:not([hidden]) {
+  display: flex !important;
+  flex-direction: column !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-unified-content:not([hidden]) {
+  display: block !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel [data-unified-view]:not([hidden]) { display: block !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel button { max-width: 100%; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel button:not(.mentor-split-toggle):not([data-mentor-close]) {
+  min-height: 40px;
+  font-size: 14px;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel p,
+#editor-stage.mentor-split-enabled > #mentor-course-panel label,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-instruction {
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+  overflow-wrap: anywhere;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel pre,
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-example {
+  max-width: 100%;
+  max-height: none !important;
+  overflow-x: auto !important;
+  overflow-y: visible !important;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel textarea,
+#editor-stage.mentor-split-enabled > #mentor-course-panel input,
+#editor-stage.mentor-split-enabled > #mentor-course-panel select { max-width: 100%; box-sizing: border-box; font-size: 15px !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-sticky-actions { padding: 12px 0 !important; background: transparent !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view:not([hidden]) { display: block !important; padding: 0 !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-code-details { max-height: none !important; overflow: visible !important; }

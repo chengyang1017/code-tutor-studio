@@ -1,0 +1,6 @@
+/* Keep reference text visible even with previous nested details styles. */
+#handson-mode-view .handson-reference:not([hidden]) { display: block !important; min-height: 80px; }
+#handson-mode-view .handson-example { display:block !important; visibility:visible !important; opacity:1 !important; color:#e6efff !important; background:#111927 !important; min-height:56px !important; white-space:pre-wrap !important; font-family:Consolas,monospace !important; }
+#handson-mode-view .handson-code-details .handson-example { display:block !important; }
+#handson-mode-view .handson-code-details[open] .handson-example { display:block !important; }
+#mentor-course-panel.handson-active .mentor-course-body { display:none !important; }

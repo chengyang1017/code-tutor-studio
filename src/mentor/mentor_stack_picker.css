@@ -1,0 +1,29 @@
+.mentor-course-panel .mentor-stack-fields {
+  display: grid;
+  gap: 6px;
+  margin: 0 0 4px;
+}
+.mentor-course-panel .mentor-stack-fields[hidden],
+.mentor-course-panel #mentor-course-select[hidden],
+.mentor-course-panel label[hidden] { display: none !important; }
+.mentor-course-panel #mentor-project-name {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 9px 11px;
+  border: 1px solid #526079;
+  border-radius: 8px;
+  color: #eaf0ff;
+  background: #252e40;
+  font: inherit;
+}
+.mentor-course-panel .mentor-stack-notice {
+  margin: 0;
+  font-size: 12px;
+  color: #b8c7de;
+}
+.mentor-course-panel .mentor-stack-notice:empty { display: none; }
+.mentor-course-panel .mentor-command-list {
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: normal !important;
+}

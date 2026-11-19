@@ -99,3 +99,190 @@
 .mentor-robot-hitbox[hidden] { display: none !important; }
 .mentor-robot-hitbox:hover { outline: 2px solid rgba(114,177,255,.45); }
 .mentor-robot-hitbox:focus-visible { outline: 3px solid #72b1ff !important; outline-offset: 2px; }
+
+/* BEGIN CODE TUTOR FULL INSTRUCTIONS */
+/* One scrollbar for the lesson card; the command/instruction area expands fully. */
+.mentor-course-panel {
+  width: min(480px, calc(100vw - 24px)) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: min(740px, calc(100dvh - 24px)) !important;
+  max-height: calc(100dvh - 24px) !important;
+}
+.mentor-course-panel .mentor-course-heading {
+  padding: 13px 16px 11px !important;
+  flex-shrink: 0 !important;
+}
+.mentor-course-panel .mentor-course-heading small {
+  display: none !important;
+}
+.mentor-course-panel .mentor-course-body {
+  padding: 16px !important;
+  gap: 12px !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  min-height: 0 !important;
+}
+.mentor-course-panel .mentor-course-body h3 {
+  margin: 0 !important;
+  font-size: 16px !important;
+}
+.mentor-course-panel .mentor-course-body h4,
+.mentor-course-panel [data-mentor-explanation],
+.mentor-course-panel [data-mentor-checks],
+.mentor-course-panel .mentor-course-progress progress,
+.mentor-course-panel [data-mentor-open],
+.mentor-course-panel [data-mentor-hint],
+.mentor-course-panel [data-mentor-pause] {
+  display: none !important;
+}
+.mentor-course-panel [data-mentor-objective] {
+  display: block !important;
+  overflow: visible !important;
+  -webkit-line-clamp: unset !important;
+  font-size: 13px !important;
+  line-height: 1.5 !important;
+}
+.mentor-course-panel [data-mentor-instruction] {
+  display: block !important;
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-width: 0 !important;
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: pre-wrap !important;
+  overflow-wrap: anywhere !important;
+  word-break: break-word !important;
+  margin: 0 !important;
+  padding: 14px !important;
+  font-size: 13px !important;
+  line-height: 1.65 !important;
+  user-select: text !important;
+}
+.mentor-course-panel .mentor-course-actions {
+  flex-wrap: nowrap !important;
+  gap: 8px !important;
+}
+.mentor-course-panel .mentor-course-actions button {
+  min-width: 0 !important;
+}
+/* END CODE TUTOR FULL INSTRUCTIONS */
+
+/* BEGIN CODE TUTOR FIT AND DRAG */
+/* Natural content height: no blank block under the lesson buttons. */
+.mentor-course-panel {
+  height: max-content !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 24px) !important;
+}
+.mentor-course-panel .mentor-course-heading {
+  flex: 0 0 auto !important;
+  cursor: grab;
+  touch-action: none;
+  user-select: none;
+}
+.mentor-course-panel .mentor-course-heading button { cursor: pointer; }
+.mentor-course-panel.mentor-is-dragging .mentor-course-heading { cursor: grabbing; }
+.mentor-course-panel .mentor-course-body {
+  flex: 0 1 auto !important;
+  min-height: 0 !important;
+  max-height: calc(100dvh - 92px) !important;
+  overflow-y: auto !important;
+}
+/* Keep commands fully expanded; only the whole lesson body can scroll. */
+.mentor-course-panel [data-mentor-instruction] {
+  height: auto !important;
+  max-height: none !important;
+  overflow: visible !important;
+  white-space: pre-wrap !important;
+}
+/* END CODE TUTOR FIT AND DRAG */
+
+/* mentor command copy controls - local patch */
+.mentor-course-panel .mentor-command-list {
+  display: flex !important;
+  flex-direction: column;
+  gap: 8px;
+  max-height: none !important;
+  overflow: visible !important;
+  padding: 10px !important;
+  white-space: normal !important;
+}
+.mentor-command-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  min-width: 0;
+}
+.mentor-command-row code {
+  flex: 1;
+  min-width: 0;
+  font: inherit;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+}
+.mentor-course-panel .mentor-command-copy {
+  flex: 0 0 auto;
+  min-width: 62px;
+  padding: 5px 7px;
+  border-radius: 6px;
+  font: 11px system-ui, sans-serif;
+  cursor: pointer;
+}
+
+/* mentor terminal-style command block v1 */
+.mentor-course-panel .mentor-command-list {
+  background: #10151e !important;
+  border: 1px solid #354254 !important;
+  border-radius: 10px;
+  padding: 12px !important;
+  gap: 5px !important;
+  max-height: none !important;
+  overflow: visible !important;
+}
+.mentor-course-panel .mentor-command-row {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  min-height: 34px;
+  padding: 5px 0;
+  border: 0;
+}
+.mentor-course-panel .mentor-command-row::before {
+  content: "PS>";
+  flex: 0 0 auto;
+  padding-top: 3px;
+  color: #87d9aa;
+  font: 12px/1.55 Consolas, "Cascadia Code", monospace;
+}
+.mentor-course-panel .mentor-command-row code {
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 3px;
+  font: 12px/1.55 Consolas, "Cascadia Code", monospace;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  user-select: text;
+  color: #e2e9f3;
+}
+.mentor-course-panel .mentor-command-copy {
+  flex: 0 0 auto;
+  min-width: 50px;
+  padding: 5px 8px;
+  font: 12px/1.4 system-ui, sans-serif;
+  color: #d5deea;
+  background: #252d3a;
+  border: 1px solid #414b5b;
+}
+
+/* CODE TUTOR WHOLE PANEL DRAG V1 */
+#mentor-course-panel { position: fixed !important; display: flex; flex-direction: column; overflow: hidden; box-sizing: border-box; max-height: calc(100dvh - 16px) !important; }
+#mentor-course-panel[hidden] { display: none !important; }
+#mentor-course-panel .mentor-course-heading { flex: 0 0 auto; cursor: grab; user-select: none; touch-action: none; }
+#mentor-course-panel .mentor-course-heading button { cursor: pointer; }
+#mentor-course-panel.mentor-whole-panel-dragging .mentor-course-heading { cursor: grabbing; }
+#mentor-course-panel .mentor-course-body { min-height: 0; overflow-y: auto; }
+#mentor-course-panel #handson-mode-view { min-height: 0; }

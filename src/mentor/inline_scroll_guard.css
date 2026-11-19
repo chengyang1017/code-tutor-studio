@@ -1,0 +1,19 @@
+/* Wheel scroll must not move the Monaco editor while the pointer is inside the tutor. */
+.inline-copilot-widget {
+  overflow-y: auto !important;
+  overscroll-behavior: contain !important;
+  touch-action: pan-y pan-x !important;
+}
+.inline-copilot-widget .inline-copilot-top {
+  cursor: move;
+  touch-action: none !important;
+}
+.inline-copilot-widget .inline-copilot-help,
+.inline-copilot-widget .inline-copilot-help pre,
+.inline-copilot-widget .inline-copilot-help code {
+  overscroll-behavior: contain !important;
+  touch-action: pan-y pan-x !important;
+}
+.inline-copilot-widget .inline-copilot-help pre {
+  overflow: auto !important;
+}

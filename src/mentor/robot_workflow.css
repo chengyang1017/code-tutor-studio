@@ -1,0 +1,20 @@
+/* Keep the previous mentor panel, but replace its obsolete robot click overlay/menu. */
+.mentor-robot-hitbox, #mentor-robot-actions { pointer-events: none !important; display: none !important; }
+#robot-workflow-click { position: fixed; z-index: 4100; border: none; background: transparent; box-shadow: none; padding: 0; cursor: pointer; }
+#robot-workflow-click[hidden], #robot-workflow-menu[hidden], #robot-workflow-menu [hidden] { display: none !important; }
+#robot-workflow-menu { position: fixed; z-index: 4200; width: min(330px, calc(100vw - 24px)); padding: 14px; border: 1px solid #536077; border-radius: 14px; background: #19202e; color: #f3f6fd; box-shadow: 0 12px 36px #0009; font-size: 13px; }
+.robot-workflow-head { display: flex; justify-content: space-between; align-items: center; gap: 8px; }
+.robot-workflow-head button { padding: 3px 9px; font-size: 18px; }
+.robot-workflow-speech { margin: 12px 0; color: #d5ddf1; line-height: 1.6; }
+.robot-workflow-actions { display: flex; flex-direction: column; gap: 8px; }
+.robot-workflow-actions button, .robot-workflow-commands button { text-align: left; border-radius: 9px; }
+.robot-workflow-primary { background: #6551d5 !important; color: #fff; }
+.robot-workflow-form { display: flex; flex-direction: column; gap: 8px; }
+.robot-workflow-form textarea { width: 100%; padding: 9px; border-radius: 8px; background: #0f1724; color: #f5f7ff; border: 1px solid #64718a; font: 12px/1.55 Consolas, monospace; resize: vertical; box-sizing: border-box; }
+.robot-workflow-form small { color: #b8c6db; line-height: 1.5; }
+.robot-workflow-commands { display: flex; gap: 6px; flex-wrap: wrap; }
+.robot-workflow-enter { animation: robot-workflow-arrive .23s ease-out; }
+.robot-workflow-animated .robot { animation: robot-workflow-talk .48s ease-in-out 2; }
+@keyframes robot-workflow-arrive { from { opacity: .25; transform: translateY(9px) scale(.96); } to { opacity: 1; transform: translateY(0) scale(1); } }
+@keyframes robot-workflow-talk { 0%, 100% { transform: translateY(0) rotate(0); } 25% { transform: translateY(-5px) rotate(-6deg); } 75% { transform: translateY(-3px) rotate(6deg); } }
+@media (prefers-reduced-motion: reduce) { .robot-workflow-enter, .robot-workflow-animated .robot { animation: none; } }

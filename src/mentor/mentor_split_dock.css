@@ -1,0 +1,196 @@
+/* Adjustable split: Monaco on the left, single mentor panel on the right. */
+#editor-stage.mentor-split-enabled > #editor {
+  right: var(--mentor-panel-percent, 50%) !important;
+  width: calc(100% - var(--mentor-panel-percent, 50%)) !important;
+  min-width: 0 !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel {
+  position: absolute !important;
+  inset: 0 0 0 auto !important;
+  left: auto !important;
+  top: 0 !important;
+  right: 0 !important;
+  bottom: 0 !important;
+  width: var(--mentor-panel-percent, 50%) !important;
+  min-width: 0 !important;
+  max-width: none !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  margin: 0 !important;
+  border-radius: 0 !important;
+  animation: none !important;
+  transform: none !important;
+  z-index: 1250 !important;
+  box-sizing: border-box !important;
+  display: flex !important;
+  flex-direction: column !important;
+  overflow: hidden !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel[hidden] { display: none !important; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-heading { cursor: default !important; flex-shrink: 0; }
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-body { min-height: 0; flex: 1 1 auto; overflow-y: auto !important; }
+#mentor-course-panel .mentor-split-toggle {
+  margin-left: auto;
+  font-size: 12px !important;
+  white-space: nowrap;
+  padding: 6px 8px;
+  color: inherit;
+  background: rgba(130,150,190,.16);
+  border: 1px solid rgba(130,150,190,.38);
+  border-radius: 7px;
+  cursor: pointer;
+}
+#mentor-course-panel .mentor-course-heading { gap: 7px; }
+#mentor-course-panel .mentor-course-heading > div { min-width: 0; }
+#mentor-course-panel .mentor-course-heading > [data-mentor-close] { flex-shrink: 0; }
+.mentor-split-divider { display: none; }
+#editor-stage.mentor-split-enabled > .mentor-split-divider {
+  display: block;
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: calc(100% - var(--mentor-panel-percent, 50%) - 5px);
+  width: 10px;
+  z-index: 1300;
+  cursor: col-resize;
+  touch-action: none;
+  background: transparent;
+}
+#editor-stage.mentor-split-enabled > .mentor-split-divider::before {
+  content: '';
+  position: absolute;
+  inset: 0 3px;
+  background: rgba(145,164,203,.5);
+  transition: background 120ms ease;
+}
+#editor-stage.mentor-split-enabled > .mentor-split-divider:hover::before,
+#editor-stage.mentor-split-enabled > .mentor-split-divider.mentor-split-resizing::before,
+#editor-stage.mentor-split-enabled > .mentor-split-divider:focus-visible::before {
+  background: #79b7ff;
+}
+
+/* MENTOR_SPLIT_SCROLL_FIX_V1_BEGIN */
+/* The dock has a bounded height: scrolling must happen INSIDE it. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  min-height: 0 !important;
+  overflow: hidden !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-heading {
+  flex: 0 0 auto !important;
+  min-height: 0;
+}
+/* The main mentor section and the tutorial have their own reachable scrollbars. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-body {
+  min-height: 0 !important;
+  max-height: 100% !important;
+  flex: 1 1 auto !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view:not([hidden]) {
+  display: flex !important;
+  flex-direction: column !important;
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: 100% !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+}
+/* Compact teaching mode previously locked the view's overflow to hidden. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel.handson-active #handson-mode-view:not([hidden]) {
+  overflow-y: auto !important;
+}
+/* When a hand-on task exists, the task itself scrolls and its actions stay reachable. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-step:not([hidden]) {
+  min-height: 0 !important;
+  overflow-y: auto !important;
+  overscroll-behavior-y: contain;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-sticky-actions {
+  flex: 0 0 auto !important;
+  position: sticky;
+  bottom: 0;
+  z-index: 2;
+  background: #161b26;
+}
+/* Other direct panes (AI dev, history, questions) may sit beside the course body. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel > :not(.mentor-course-heading):not([hidden]) {
+  min-height: 0;
+}
+/* Prevent any nested code sample from stretching the dock. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel pre {
+  max-width: 100%;
+  overflow: auto;
+  overflow-wrap: anywhere;
+}
+/* MENTOR_SPLIT_SCROLL_FIX_V1_END */
+
+/* MENTOR_WHOLE_PANEL_SCROLL_BEGIN */
+/* One scroll surface: header, tabs, lesson and actions all move together. */
+#editor-stage.mentor-split-enabled > #mentor-course-panel:not([hidden]) {
+  display: block !important;
+  overflow-y: auto !important;
+  overflow-x: hidden !important;
+  overscroll-behavior-y: contain;
+  scrollbar-width: thin;
+  min-height: 0 !important;
+  height: 100% !important;
+  max-height: 100% !important;
+  scroll-behavior: auto;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel > .mentor-course-heading {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  flex: none !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-body,
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view:not([hidden]),
+#editor-stage.mentor-split-enabled > #mentor-course-panel.handson-active #handson-mode-view:not([hidden]),
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-step:not([hidden]) {
+  display: block !important;
+  height: auto !important;
+  max-height: none !important;
+  min-height: 0 !important;
+  flex: none !important;
+  overflow: visible !important;
+  overscroll-behavior-y: auto;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-sticky-actions {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+  z-index: auto !important;
+  flex: none !important;
+  box-shadow: none !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel .mentor-course-actions,
+#editor-stage.mentor-split-enabled > #mentor-course-panel [class*="sticky-actions"] {
+  position: static !important;
+  top: auto !important;
+  bottom: auto !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-example {
+  height: auto !important;
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: auto !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel .handson-code-details {
+  max-height: none !important;
+  overflow: visible !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel pre {
+  max-height: none !important;
+  overflow-y: visible !important;
+  overflow-x: auto !important;
+}
+/* MENTOR_WHOLE_PANEL_SCROLL_END */

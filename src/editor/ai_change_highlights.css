@@ -1,0 +1,22 @@
+/* Monaco applies whole-line decoration classes to view lines, not the editor root. */
+.monaco-editor .view-lines .view-line.ai-change-line-added,
+.monaco-editor .view-line.ai-change-line-added,
+.monaco-editor .ai-change-line-added {
+  background: rgba(52, 211, 137, .29) !important;
+  box-shadow: inset 3px 0 0 #36e092 !important;
+}
+.monaco-editor .view-lines .view-line.ai-change-line-modified,
+.monaco-editor .view-line.ai-change-line-modified,
+.monaco-editor .ai-change-line-modified {
+  background: rgba(245, 185, 70, .27) !important;
+  box-shadow: inset 3px 0 0 #f6bd50 !important;
+}
+.monaco-editor .ai-change-gutter-added { border-left: 5px solid #36e092 !important; background: rgba(52,211,137,.21) !important; }
+.monaco-editor .ai-change-gutter-modified { border-left: 5px solid #f6bd50 !important; background: rgba(245,185,70,.21) !important; }
+.ai-change-widget { position:fixed; right:24px; bottom:42px; z-index:1150; width:min(370px,calc(100vw - 48px)); padding:11px 13px; border:1px solid #65809c; border-radius:11px; color:#f6f8fd; background:#182337; box-shadow:0 12px 32px #0009; font:13px system-ui,sans-serif; }
+.ai-change-widget[hidden] { display:none!important; }
+.ai-change-widget-title { font-weight:700; font-size:14px; margin-bottom:5px; }
+.ai-change-widget-count { color:#d5dfec; line-height:1.5; overflow-wrap:anywhere; }
+.ai-change-widget-nav { display:flex; gap:7px; margin-top:9px; }
+.ai-change-widget-nav button { border:1px solid #66778d; border-radius:7px; padding:5px 8px; color:#fff; background:#283b55; cursor:pointer; font:inherit; }
+.ai-change-widget-nav button:hover { background:#365478; }

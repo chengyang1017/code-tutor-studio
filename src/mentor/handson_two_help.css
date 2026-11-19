@@ -1,0 +1,48 @@
+/* Simplified hands-on view: task + two help choices + code check. */
+#mentor-course-panel #handson-mode-view:not([hidden]) {
+  padding: 20px 24px 28px !important;
+  gap: 12px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-step:not([hidden]) {
+  gap: 12px !important;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-card,
+#mentor-course-panel #handson-mode-view .mentor-placement-context,
+#mentor-course-panel #handson-mode-view .mentor-placement-jump {
+  display: none !important;
+}
+#mentor-course-panel #handson-mode-view .handson-help-controls {
+  display: grid !important;
+  grid-template-columns: repeat(2, minmax(0, 1fr)) !important;
+  gap: 10px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-help-controls button {
+  width: 100% !important;
+  min-width: 0 !important;
+  margin: 0 !important;
+}
+#mentor-course-panel #handson-mode-view .handson-path {
+  padding: 9px 12px !important;
+  border-radius: 8px !important;
+  background: #213149 !important;
+  color: #b9ddff !important;
+}
+#mentor-course-panel #handson-mode-view .handson-instruction {
+  padding: 14px 16px !important;
+  border-radius: 10px !important;
+  line-height: 1.7 !important;
+}
+#mentor-course-panel #handson-mode-view .handson-explanation:not([hidden]),
+#mentor-course-panel #handson-mode-view .handson-reference:not([hidden]) {
+  padding: 14px 16px !important;
+  border-radius: 10px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-reference pre {
+  white-space: pre !important;
+  overflow-x: auto !important;
+  max-width: 100% !important;
+}
+#mentor-course-panel #handson-mode-view [hidden] { display: none !important; }
+@media (max-width: 520px) {
+  #mentor-course-panel #handson-mode-view:not([hidden]) { padding: 14px 16px 22px !important; }
+}

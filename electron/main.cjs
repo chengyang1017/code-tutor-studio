@@ -4,6 +4,7 @@ const { watch } = require('node:fs');
 const path = require('node:path');
 const { randomUUID } = require('node:crypto');
 const { buildProjectTemplateFiles } = require('./project_templates.cjs');
+const { scaffoldOfficialProject } = require('./official_scaffold.cjs');
 const { DartLspClient } = require('./dart_lsp.cjs');
 const { WindowsTtsBridge } = require('./windows_tts.cjs');
 
@@ -130,6 +131,41 @@ function createWindow() {
   }
 }
 
+ipcMain.handle('project:plan-software', async (_event, request) => {
+  if (!currentProjectRoot) throw new Error('Open a local project first.');
+  if (!runtimeOpenAiKey) throw new Error('Please configure your OpenAI API Key.');
+  const goal = typeof request?.goal === 'string' ? request.goal.trim() : '';
+  if (!goal || goal.length > 2000) throw new Error('Software description must contain 1-2000 characters.');
+  if (request?.rootPath !== currentProjectRoot) throw new Error('The active project has changed.');
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+      method: 'POST',
+      headers: {
+        Authorization: `Bearer ${runtimeOpenAiKey}`,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [
+          { role: 'system', content: 'You are a practical software development mentor. Reply in Simplified Chinese. The user has just opened a project in their IDE. Create a short actionable plan for the app they want to build, covering: project goal, proposed MVP features, first 3 development steps, and 1 or 2 necessary clarification questions. Respect existing stack rather than suggesting unnecessary rewrites. Do not claim to have modified files or executed commands. Limit the answer to about 350 Chinese characters.' },
+          { role: 'user', content: `Project: ${currentProjectRoot}\nExisting files: ${currentProjectFiles.slice(0, 70).join(', ')}\nUser goal: ${goal}` },
+        ],
+        max_output_tokens: 1100,
+      }),
+      signal: controller.signal,
+    });
+    const payload = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(payload?.error?.message || `AI request failed (${response.status})`);
+    const plan = extractOpenAiOutputText(payload).trim();
+    if (!plan) throw new Error('AI returned an empty plan.');
+    return { plan };
+  } finally {
+    clearTimeout(timeout);
+  }
+});
+
 ipcMain.handle('project:close', async (event) => {
   closeProjectFileWatcher(event.sender.id);
   dartLspClient?.dispose();
@@ -149,7 +185,11 @@ ipcMain.handle('project:create-template', async (event, rawInput) => {
   if (!/^[a-zA-Z0-9][a-zA-Z0-9_-]{0,59}$/.test(name)) {
     throw new Error('项目名称只能包含英文、数字、横线或下划线。');
   }
-  const files = buildProjectTemplateFiles(template, name);
+  const official = template === 'react-ts' || template === 'react-js' || template === 'flutter';
+  if (template === 'flutter' && !/^[a-z][a-z0-9_]*$/.test(name)) {
+    throw new Error('Flutter project names must use lowercase snake_case.');
+  }
+  const files = official ? null : buildProjectTemplateFiles(template, name);
   const selection = await dialog.showOpenDialog({
     title: '选择新项目的上级目录',
     properties: ['openDirectory', 'createDirectory'],
@@ -158,22 +198,43 @@ ipcMain.handle('project:create-template', async (event, rawInput) => {
 
   const parent = path.resolve(selection.filePaths[0]);
   const root = path.join(parent, name);
-  // mkdir without recursive protects existing directories from accidental edits.
+  // Existing folders are never overwritten.
   try {
-    await fs.mkdir(root);
+    await fs.lstat(root);
+    throw new Error('项目文件夹已存在，请更换名称。');
   } catch (error) {
-    if (error?.code === 'EEXIST') throw new Error('项目文件夹已存在，请更换名称。');
-    throw error;
+    if (error?.code !== 'ENOENT') throw error;
   }
-  for (const [relativePath, content] of Object.entries(files)) {
-    const target = path.join(root, relativePath);
-    await fs.mkdir(path.dirname(target), { recursive: true });
-    await fs.writeFile(target, content, { encoding: 'utf8', flag: 'wx' });
+  if (official) {
+    await scaffoldOfficialProject({ template, name, parent, root });
+  } else {
+    await fs.mkdir(root);
+    for (const [relativePath, content] of Object.entries(files)) {
+      const target = path.join(root, relativePath);
+      await fs.mkdir(path.dirname(target), { recursive: true });
+      await fs.writeFile(target, content, { encoding: 'utf8', flag: 'wx' });
+    }
   }
   closeProjectFileWatcher(event.sender.id);
   currentGitHubProject = null;
   const project = await loadProjectRoot(root);
   persistentState.lastProjectRoot = root;
+  persistentState.lastOpenFile = '';
+  await savePersistentState();
+  return { ...project, lastOpenFile: '' };
+});
+
+ipcMain.handle('project:open-terminal-folder', async (event, rawFolder) => {
+  if (typeof rawFolder !== 'string' || !path.isAbsolute(rawFolder)) {
+    throw new Error('Invalid terminal project folder.');
+  }
+  const rootPath = path.resolve(rawFolder);
+  const stat = await fs.stat(rootPath);
+  if (!stat.isDirectory()) throw new Error('Terminal folder is not a directory.');
+  const project = await loadProjectRoot(rootPath);
+  closeProjectFileWatcher(event.sender.id);
+  currentGitHubProject = null;
+  persistentState.lastProjectRoot = rootPath;
   persistentState.lastOpenFile = '';
   await savePersistentState();
   return { ...project, lastOpenFile: '' };
@@ -2498,6 +2559,23 @@ function hexLuminanceValue(value) {
 
 app.whenReady().then(async () => {
   await loadPersistentState();
+  // CODE_TUTOR_CLI_PROJECT_OPEN_V1
+  // The CLI launcher passes the chosen folder through a scoped environment variable.
+  const cliProjectRoot = process.env.CODE_TUTOR_OPEN_PATH;
+  if (cliProjectRoot) {
+    try {
+      const resolvedRoot = path.resolve(cliProjectRoot);
+      const folderInfo = await fs.stat(resolvedRoot);
+      if (!folderInfo.isDirectory()) {
+        throw new Error('CLI project path must be a directory.');
+      }
+      persistentState.lastProjectRoot = resolvedRoot;
+      persistentState.lastOpenFile = '';
+      await savePersistentState();
+    } catch (error) {
+      console.error('[codetutor] Cannot open requested directory:', error);
+    }
+  }
   createWindow();
 
   app.on('activate', () => {
@@ -2517,3 +2595,84 @@ app.on('window-all-closed', () => {
     app.quit();
   }
 });
+
+// HANDSON_TUTOR_IPC_V1
+ipcMain.handle('mentor:handson-step', async (_event, raw) => {
+  if (!currentProjectRoot) throw new Error('Please open a local project first.');
+  if (!runtimeOpenAiKey) throw new Error('Please configure the OpenAI API Key first.');
+  const input = raw && typeof raw === 'object' ? raw : {};
+  const goal = String(input.goal || '').trim().slice(0, 2000);
+  const history = Array.isArray(input.history) ? input.history.slice(-12) : [];
+  const previous = input.previous && typeof input.previous === 'object' ? input.previous : null;
+  const mode = input.mode === 'verify' ? 'verify' : input.mode === 'reference' ? 'reference' : 'next';
+  if (!goal) throw new Error('Please describe the feature you want to learn.');
+  const files = currentProjectFiles.filter(name => !name.startsWith('.code-tutor/')).slice(0, 140);
+  const target = previous && typeof previous.file === 'string' ? previous.file : '';
+  const preview = [];
+  const interest = files.filter(name => /(^package\.json$|^src\/(App\.|main\.|auth\.|pages\/)|^lib\/main\.dart$)/i.test(name)).slice(0, 7);
+  if (target && !interest.includes(target)) interest.push(target);
+  for (const file of interest) {
+    try {
+      const absolute = resolveInsideProject(currentProjectRoot, file);
+      const body = await fs.readFile(absolute, 'utf8');
+      preview.push({ file, content: body.slice(0, 7000) });
+    } catch { /* The requested file may not exist yet. */ }
+  }
+  // INLINE_PLACEMENT_V2: request exact placement so the student can find it.
+  const placementContract = `When mode=reference, output ONE JSON object: {"example":"focused code snippet", "placement":{"file":"project-relative path", "action":"before|after|replace|new_file|unknown", "anchor":"exact existing source text close to the edit (must be copied verbatim)", "note":"one short Chinese sentence explaining where to write"}}. The anchor MUST exist verbatim in the real target file. For replace, anchor MUST be the exact old code being replaced; for before/after, anchor is the nearby exact existing line. If you cannot verify a unique location, set action=unknown and anchor empty; do not guess line numbers. Never modify files.`;
+  const instructions = mode === 'reference'
+    ? "Return JSON containing one non-empty string field named example. Give a focused, syntactically valid code example for the student's CURRENT step and CURRENT target file, using the real file content. Output code only in example. Do not modify any files. Do not invent unavailable APIs. Do not include markdown fences."
+    : mode === 'verify'
+    ? `Check the student's current work for the current step. Be conservative: return passed=true only if there is convincing code evidence that the task is done. If incomplete, give a specific, friendly hint. Do NOT modify files. Return JSON with keys passed (boolean), feedback (string).`
+    : `You are a patient, hands-on Chinese coding tutor inside an IDE. The student MUST type all code. Never modify files or claim you did. Plan ONE small step at a time based on the real project and user's goal, not a hardcoded Todo course. Provide the exact project-relative file to open. In the instruction field, describe WHAT functionality to implement and the observable completion criteria, using simple Chinese and NO source code, syntax snippets, or copy-paste instructions. The explanation field is a brief conceptual hint, without giving full code. The example field contains a small focused code reference only for when the student explicitly requests it. The UI hides explanation and example initially. Prefer editing existing files, only create a file when necessary. Avoid repeating steps in history. If a file does not exist yet, explicitly tell them to create it manually. Return JSON keys file (string), title (string), instruction (string), example (string), explanation (string), anchor (string), line (number). The anchor should be an EXACT short snippet copied verbatim from the existing file contents, near the location the student must edit. If no such snippet is available, use an empty anchor and line 1. The instruction should start with a short precise action (e.g. 'find the login() function and add a validation branch') and list 1-2 observable success criteria. Do not reveal code inside instruction. Use no markdown outside JSON.`;
+  const controller = new AbortController();
+  const timeout = setTimeout(() => controller.abort(), 60000);
+  try {
+    const response = await fetch(`${OPENAI_BASE_URL}/responses`, {
+      method: 'POST',
+      headers: { Authorization: `Bearer ${runtimeOpenAiKey}`, 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        model: OPENAI_MODEL,
+        input: [
+          { role: 'system', content: instructions },
+          ...(mode === 'reference' ? [{role:'system',content:placementContract}] : []),
+          { role: 'user', content: JSON.stringify({ mode, goal, history, previous, projectFiles: files, fileContents: preview }) },
+        ],
+      }),
+      signal: controller.signal,
+    });
+    const result = await response.json().catch(() => ({}));
+    if (!response.ok) throw new Error(result?.error?.message || `AI request failed (${response.status})`);
+    const answer = extractOpenAiOutputText(result).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
+    const decoded = JSON.parse(answer);
+    if (!decoded || typeof decoded !== 'object') throw new Error('AI returned an invalid response.');
+    if (mode === 'reference') {
+      const place = decoded.placement && typeof decoded.placement === 'object' ? decoded.placement : {};
+      const file = String(place.file || target || '').trim().replace(/\\/g,'/');
+      const action = String(place.action || 'unknown');
+      const anchor = String(place.anchor || '').trim();
+      const note = String(place.note || '').slice(0, 400);
+      let line = 0;
+      let verified = false;
+      if (file && file === target && ['before','after','replace'].includes(action) && anchor && !file.startsWith('/') && !file.includes('..')) {
+        try {
+          const content = await fs.readFile(resolveInsideProject(currentProjectRoot, file), 'utf8');
+          const first = content.indexOf(anchor);
+          if (first >= 0 && content.indexOf(anchor, first + anchor.length) === -1) {
+            verified = true;
+            line = content.slice(0, first).split(/\r?\n/).length;
+          }
+        } catch { /* Cannot verify location. */ }
+      }
+      return {
+        example: String(decoded.example || '').trim().slice(0, 12000),
+        placement: {file: file || target, action, anchor: verified ? anchor : '', note, line, verified},
+      };
+    }
+    if (mode === 'verify') return { passed: decoded.passed === true, feedback: String(decoded.feedback || '').slice(0, 1800) };
+    const file = String(decoded.file || '').trim().replace(/\\/g, '/');
+    if (!file || file.startsWith('/') || file.includes('..') || /^[a-zA-Z]:/.test(file)) throw new Error('AI returned an unsafe file path.');
+    return { file, title: String(decoded.title || '').slice(0, 140), instruction: String(decoded.instruction || '').slice(0, 2400), example: String(decoded.example || '').slice(0, 12000), explanation: String(decoded.explanation || '').slice(0, 2500), anchor: String(decoded.anchor || '').slice(0, 240), line: Math.max(1, Math.min(50000, Number(decoded.line) || 1)) };
+  } finally { clearTimeout(timeout); }
+});
+

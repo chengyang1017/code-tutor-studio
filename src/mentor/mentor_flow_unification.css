@@ -1,0 +1,14 @@
+/* AI interview is now the only planning surface in the unified mentor. */
+#mentor-course-panel.mentor-unified [data-unified-view="plan"] { padding: 0 !important; }
+#mentor-course-panel.mentor-unified .mentor-ai-flow {
+  display: flex; flex-direction: column; gap: 12px; min-height: 0;
+  max-height: none !important; overflow: visible !important; padding: 14px !important;
+}
+#mentor-course-panel.mentor-unified .mentor-ai-flow[hidden] { display:none !important; }
+#mentor-course-panel.mentor-unified .mentor-generated-location {
+  padding: 12px; border-radius: 9px; background: #202b43; overflow-wrap: anywhere;
+}
+#mentor-course-panel.mentor-unified .mentor-generated-actions { display:flex; gap:8px; }
+#mentor-course-panel.mentor-unified .mentor-generated-actions button { flex:1; }
+#mentor-course-panel.mentor-unified [data-unified-view="teach"] { padding:14px; display:flex; flex-direction:column; gap:12px; }
+#mentor-course-panel.mentor-unified [data-unified-view="teach"][hidden] { display:none !important; }

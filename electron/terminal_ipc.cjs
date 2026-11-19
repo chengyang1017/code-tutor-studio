@@ -1,172 +1,72 @@
-const { ipcMain } = require('electron');
-const { spawn } = require('node:child_process');
+'use strict';
+const { ipcMain, dialog, BrowserWindow } = require('electron');
 const fs = require('node:fs/promises');
 const path = require('node:path');
-
+const pty = require('node-pty');
 const sessions = new Map();
-const MAX_INPUT_LENGTH = 64 * 1024;
-
-async function validateProjectRoot(rawRoot) {
-  if (typeof rawRoot !== 'string' || !rawRoot.trim()) {
-    throw new Error('请先打开一个本地真实项目。');
-  }
-
-  const root = path.resolve(rawRoot);
-  if (!path.isAbsolute(root)) {
-    throw new Error('终端工作目录无效。');
-  }
-
+function signal(sender, channel, data) {
+  if (!sender.isDestroyed()) sender.send(channel, data);
+}
+function close(id) {
+  const old = sessions.get(id);
+  if (!old) return false;
+  sessions.delete(id);
+  try { old.kill(); } catch { /* already exited */ }
+  return true;
+}
+ipcMain.handle('terminal:choose-folder', async (event) => {
+  const win = BrowserWindow.fromWebContents(event.sender);
+  const options = { title: '选择终端工作目录', properties: ['openDirectory', 'createDirectory'] };
+  const result = win ? await dialog.showOpenDialog(win, options) : await dialog.showOpenDialog(options);
+  return result.canceled ? null : (result.filePaths[0] || null);
+});
+ipcMain.handle('terminal:start', async (event, requestedRoot) => {
+  if (typeof requestedRoot !== 'string' || !requestedRoot.trim()) throw new Error('请先选择工作目录');
+  const root = path.resolve(requestedRoot);
   const stat = await fs.stat(root);
-  if (!stat.isDirectory()) {
-    throw new Error('终端工作目录不是文件夹。');
-  }
-
-  return root;
-}
-
-function shellConfiguration() {
-  if (process.platform === 'win32') {
-    const startup = [
-      '$utf8 = [System.Text.UTF8Encoding]::new($false)',
-      '[Console]::InputEncoding = $utf8',
-      '[Console]::OutputEncoding = $utf8',
-      '$OutputEncoding = $utf8',
-    ].join('; ');
-
-    return {
-      command: 'powershell.exe',
-      args: [
-        '-NoLogo',
-        '-NoProfile',
-        '-NoExit',
-        '-Command',
-        startup,
-      ],
-      label: 'PowerShell',
-    };
-  }
-
-  const command = process.env.SHELL?.trim() || '/bin/bash';
-  return {
-    command,
-    args: [],
-    label: path.basename(command),
-  };
-}
-
-function send(sender, channel, payload) {
-  if (!sender.isDestroyed()) {
-    sender.send(channel, payload);
-  }
-}
-
-function stopSession(senderId) {
-  const session = sessions.get(senderId);
-  if (!session) {
-    return false;
-  }
-
-  sessions.delete(senderId);
-  try {
-    session.child.stdin.end();
-  } catch {
-    // Ignore shutdown races.
-  }
-
-  if (!session.child.killed) {
-    try {
-      session.child.kill();
-    } catch {
-      // Process may already be gone.
-    }
-  }
-
-  return true;
-}
-
-ipcMain.handle('terminal:start', async (event, rawRoot) => {
-  const root = await validateProjectRoot(rawRoot);
-  const senderId = event.sender.id;
-  stopSession(senderId);
-
-  const shell = shellConfiguration();
-  const child = spawn(shell.command, shell.args, {
-    cwd: root,
-    env: {
-      ...process.env,
-      TERM: process.env.TERM || 'xterm-256color',
-    },
-    stdio: ['pipe', 'pipe', 'pipe'],
-    windowsHide: true,
+  if (!stat.isDirectory()) throw new Error('终端工作目录必须是文件夹');
+  const sender = event.sender;
+  const id = sender.id;
+  close(id);
+  const isWindows = process.platform === 'win32';
+  const shell = isWindows ? 'powershell.exe' : (process.env.SHELL || '/bin/bash');
+  // OSC 7 is emitted at each prompt, including after PowerShell 'cd'.
+  // This is metadata for the terminal UI, not an additional shell command.
+  const promptBootstrap = 'function global:prompt { ' +
+    '$p = (Get-Location).ProviderPath; ' +
+    '$u = [System.Uri]::new($p).AbsoluteUri; ' +
+    '[Console]::Write([char]27 + "]7;" + $u + [char]7); ' +
+    '"PS " + $p + "> " }';
+  const args = isWindows
+    ? ['-NoLogo', '-NoProfile', '-NoExit', '-Command', promptBootstrap]
+    : [];
+  // On Windows, node-pty uses ConPTY; unlike stdio pipes this is a real TTY.
+  const child = pty.spawn(shell, args, {
+    name: 'xterm-256color', cols: 100, rows: 24, cwd: root,
+    env: { ...process.env, TERM: 'xterm-256color' },
+    ...(isWindows ? { useConpty: true } : {}),
   });
-
-  child.stdout.setEncoding('utf8');
-  child.stderr.setEncoding('utf8');
-
-  const session = {
-    child,
-    root,
-    shell: shell.label,
-  };
-  sessions.set(senderId, session);
-
-  const forward = (stream) => {
-    stream.on('data', (data) => {
-      send(event.sender, 'terminal:data', {
-        data: String(data),
-      });
-    });
-  };
-
-  forward(child.stdout);
-  forward(child.stderr);
-
-  child.on('error', (error) => {
-    send(event.sender, 'terminal:data', {
-      data: `\r\n[terminal error] ${error.message}\r\n`,
-    });
+  sessions.set(id, child);
+  child.onData(data => signal(sender, 'terminal:data', { data }));
+  child.onExit(({ exitCode, signal: exitSignal }) => {
+    if (sessions.get(id) === child) sessions.delete(id);
+    signal(sender, 'terminal:exit', { code: exitCode, signal: String(exitSignal ?? '') });
   });
-
-  child.on('exit', (code, signal) => {
-    if (sessions.get(senderId)?.child === child) {
-      sessions.delete(senderId);
-    }
-    send(event.sender, 'terminal:exit', {
-      code,
-      signal,
-    });
-  });
-
-  event.sender.once('destroyed', () => {
-    if (sessions.get(senderId)?.child === child) {
-      stopSession(senderId);
-    }
-  });
-
-  return {
-    cwd: root,
-    shell: shell.label,
-  };
+  sender.once('destroyed', () => { if (sessions.get(id) === child) close(id); });
+  return { cwd: root, shell: isWindows ? 'PowerShell' : path.basename(shell) };
 });
-
-ipcMain.handle('terminal:write', (event, rawInput) => {
-  const session = sessions.get(event.sender.id);
-  if (!session || session.child.killed) {
-    throw new Error('终端尚未启动。');
-  }
-
-  if (typeof rawInput !== 'string') {
-    throw new Error('终端输入无效。');
-  }
-
-  if (rawInput.length > MAX_INPUT_LENGTH) {
-    throw new Error('单次终端输入过长。');
-  }
-
-  session.child.stdin.write(`${rawInput}\r\n`);
+ipcMain.handle('terminal:write', (event, input) => {
+  const child = sessions.get(event.sender.id);
+  if (!child) throw new Error('终端尚未启动');
+  if (typeof input !== 'string' || input.length > 65536) throw new Error('终端输入无效');
+  child.write(input);  // Raw key stream. NEVER append CRLF.
   return true;
 });
-
-ipcMain.handle('terminal:stop', (event) => {
-  return stopSession(event.sender.id);
+ipcMain.handle('terminal:resize', (event, cols, rows) => {
+  const child = sessions.get(event.sender.id);
+  if (!child) return false;
+  if (!Number.isInteger(cols) || !Number.isInteger(rows) || cols < 2 || rows < 2 || cols > 500 || rows > 300) return false;
+  child.resize(cols, rows);
+  return true;
 });
+ipcMain.handle('terminal:stop', event => close(event.sender.id));

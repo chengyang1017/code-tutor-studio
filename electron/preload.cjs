@@ -30,8 +30,10 @@ function requireProjectRoot() {
 
 contextBridge.exposeInMainWorld('tutorIde', {
   openProject: () => invokeProjectSnapshot('project:open'),
+  planSoftware: (request) => ipcRenderer.invoke('project:plan-software', request),
   closeProject: () => ipcRenderer.invoke('project:close').then(() => { activeProjectRoot = ''; return true; }),
   createTemplateProject: (input) => invokeProjectSnapshot('project:create-template', input),
+  handsonStep: (input) => ipcRenderer.invoke('mentor:handson-step', input),
   restoreProject: () => invokeProjectSnapshot('project:restore'),
   openGitHubRepository: (url) => invokeProjectSnapshot('github:open-repository', url),
   readProjectFile: (relativePath) => ipcRenderer.invoke('project:read-file', relativePath),
@@ -61,7 +63,11 @@ contextBridge.exposeInMainWorld('tutorIde', {
     relativePath,
   ),
 
-  startTerminal: () => ipcRenderer.invoke('terminal:start', requireProjectRoot()),
+  chooseTerminalDirectory: () => ipcRenderer.invoke('terminal:choose-directory'),
+  startTerminal: (root) => ipcRenderer.invoke('terminal:start', root || requireProjectRoot()),
+  chooseTerminalFolder: () => ipcRenderer.invoke('terminal:choose-folder'),
+  resizeTerminal: (cols, rows) => ipcRenderer.invoke('terminal:resize', cols, rows),
+  openTerminalFolderAsProject: (folder) => invokeProjectSnapshot('project:open-terminal-folder', folder),
   writeTerminal: (input) => ipcRenderer.invoke('terminal:write', input),
   stopTerminal: () => ipcRenderer.invoke('terminal:stop'),
   onTerminalData: (listener) => {
@@ -118,4 +124,14 @@ contextBridge.exposeInMainWorld('tutorIde', {
   explainCurrentCode: (context, outputLanguage) => ipcRenderer.invoke('ai:explain-current-code', context, outputLanguage),
   planTutorTour: (focus, outputLanguage) => ipcRenderer.invoke('ai:plan-tour', focus, outputLanguage),
   planDartSemanticTour: (focus, mode, outputLanguage) => ipcRenderer.invoke('ai:plan-dart-semantic-tour', focus, mode, outputLanguage),
+});
+
+contextBridge.exposeInMainWorld('mentorAi', {
+  ask: (goal) => ipcRenderer.invoke('mentor-ai:questions', goal),
+  draft: (input) => ipcRenderer.invoke('mentor-ai:draft', input),
+  apply: (id, confirmed) => ipcRenderer.invoke('mentor-ai:apply', id, confirmed),
+});
+
+contextBridge.exposeInMainWorld('mentorChangeHistory', {
+  list: () => ipcRenderer.invoke('mentor-change-history:list'),
 });

@@ -1,0 +1,39 @@
+/* Reading layout for hands-on tasks and syntax-colored reference code. */
+#handson-mode-view .handson-instruction {
+  font-size: 16px !important;
+  line-height: 1.85 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere;
+}
+#handson-mode-view .mentor-readable-line { margin: 0 0 12px; }
+#handson-mode-view .mentor-readable-heading {
+  font-weight: 700;
+  color: #a8ceff;
+  margin-top: 12px;
+}
+#handson-mode-view .mentor-readable-item {
+  border-left: 3px solid #688cff;
+  padding-left: 12px;
+  margin-left: 2px;
+}
+#handson-mode-view .handson-reference,
+#handson-mode-view .handson-code-details { min-width: 0; }
+#handson-mode-view pre.handson-example {
+  display: block;
+  white-space: pre !important;
+  overflow-x: auto !important;
+  overflow-y: auto;
+  max-width: 100%;
+  tab-size: 2;
+  line-height: 1.75 !important;
+  font-size: 15px !important;
+  font-family: Consolas, 'Cascadia Code', monospace !important;
+  color: #e2e8f0;
+  background: #101827;
+  padding: 16px;
+  border-radius: 10px;
+}
+#handson-mode-view .mentor-token-comment { color: #8ba6a1; }
+#handson-mode-view .mentor-token-string { color: #b5df8a; }
+#handson-mode-view .mentor-token-number { color: #efc17f; }
+#handson-mode-view .mentor-token-keyword { color: #c3a0f5; font-weight: 600; }

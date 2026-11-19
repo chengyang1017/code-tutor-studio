@@ -1,0 +1,151 @@
+/* Unified tutor cards: real padding in docked AND floating modes. */
+#mentor-course-panel #handson-mode-view:not([hidden]) {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 22px 24px 30px !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-step:not([hidden]) {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  padding: 0 !important;
+  margin: 0 !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 15px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-heading {
+  font-size: 17px !important;
+  font-weight: 700 !important;
+  line-height: 1.55 !important;
+}
+#mentor-course-panel #handson-mode-view .handson-title {
+  margin: 4px 0 0 !important;
+  line-height: 1.5 !important;
+  font-size: 19px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-instruction {
+  box-sizing: border-box !important;
+  background: #202b3b !important;
+  border: 1px solid #394963 !important;
+  border-radius: 12px !important;
+  padding: 18px 20px !important;
+  margin: 0 !important;
+  line-height: 1.8 !important;
+  white-space: normal !important;
+  overflow-wrap: anywhere !important;
+}
+#mentor-course-panel #handson-mode-view .handson-status {
+  line-height: 1.6 !important;
+  padding: 2px 0 !important;
+}
+#mentor-course-panel #handson-mode-view textarea,
+#mentor-course-panel #handson-mode-view .handson-reference,
+#mentor-course-panel #handson-mode-view .handson-explanation {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  margin: 0 !important;
+}
+#mentor-course-panel #handson-mode-view .handson-reference:not([hidden]) {
+  padding: 18px 20px !important;
+  border-radius: 12px !important;
+  border: 1px solid #465776 !important;
+  background: #182333 !important;
+}
+#mentor-course-panel #handson-mode-view .handson-reference pre {
+  padding: 14px !important;
+  border-radius: 9px !important;
+  white-space: pre !important;
+  overflow-x: auto !important;
+  overflow-wrap: normal !important;
+  max-width: 100% !important;
+}
+#mentor-course-panel #handson-mode-view button {
+  box-sizing: border-box !important;
+  width: 100% !important;
+  min-height: 46px !important;
+  padding: 10px 14px !important;
+  border-radius: 9px !important;
+  line-height: 1.4 !important;
+  font-size: 15px !important;
+}
+#mentor-course-panel #handson-mode-view .handson-help-controls {
+  display: grid !important;
+  gap: 10px !important;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-card {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+  padding: 18px 20px;
+  border: 1px solid #365b80;
+  border-left: 4px solid #55b6ff;
+  background: #17283b;
+  border-radius: 12px;
+  min-width: 0;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-heading {
+  display: flex;
+  align-items: baseline;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-kicker {
+  color: #8bcaff;
+  font-size: 12px;
+  font-weight: 700;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-title { font-size: 17px; }
+#mentor-course-panel #handson-mode-view .mentor-placement-file {
+  font-family: Consolas, monospace;
+  font-weight: 700;
+  color: #b8e0ff;
+  overflow-wrap: anywhere;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-action {
+  color: #92e1bb;
+  font-weight: 700;
+  font-size: 15px;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-notice {
+  margin: 0;
+  color: #c5d2e4;
+  font-size: 14px;
+  line-height: 1.75;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-context summary {
+  cursor: pointer;
+  color: #badbfa;
+  padding: 8px 0;
+  font-size: 14px;
+}
+#mentor-course-panel #handson-mode-view .mentor-placement-snippet {
+  box-sizing: border-box;
+  max-width: 100%;
+  background: #101b2a;
+  padding: 14px;
+  border-radius: 9px;
+  white-space: pre;
+  overflow-x: auto;
+  font: 13px/1.65 Consolas, monospace;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view:not([hidden]) {
+  padding: 24px 28px 36px !important;
+  overflow: visible !important;
+  height: auto !important;
+  max-height: none !important;
+}
+#editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view .handson-step:not([hidden]) {
+  padding: 0 !important;
+}
+#mentor-course-panel #handson-mode-view [hidden] { display: none !important; }
+@media (max-width: 650px) {
+  #mentor-course-panel #handson-mode-view:not([hidden]),
+  #editor-stage.mentor-split-enabled > #mentor-course-panel #handson-mode-view:not([hidden]) {
+    padding: 14px 16px 24px !important;
+  }
+  #mentor-course-panel #handson-mode-view .mentor-placement-card { padding: 14px 16px; }
+}

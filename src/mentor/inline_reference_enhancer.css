@@ -1,0 +1,42 @@
+/* Readable reference answer without changing any tutoring logic. */
+.inline-copilot-widget {
+  box-sizing: border-box !important;
+  width: min(700px, calc(100vw - 44px)) !important;
+  max-width: calc(100vw - 24px) !important;
+  max-height: min(82dvh, 850px) !important;
+  padding: 20px 22px !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  font-size: 15px !important;
+  line-height: 1.65 !important;
+}
+.inline-copilot-help { min-width: 0 !important; padding: 14px !important; }
+.inline-reference-toolbar {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 12px; margin-top: 12px; padding: 9px 12px;
+  background: #141d2b; border: 1px solid #42516b;
+  border-radius: 9px 9px 0 0;
+}
+.inline-reference-location { font-size: 13px; color: #b8cffa; overflow-wrap: anywhere; }
+.inline-copilot-widget .inline-reference-copy {
+  flex: 0 0 auto; padding: 8px 13px !important;
+  background: #384b75 !important; color: #fff !important;
+  font-size: 13px !important; font-weight: 600 !important;
+}
+.inline-copilot-help pre.inline-copilot-answer-code,
+.inline-copilot-help pre:has(> code) {
+  box-sizing: border-box; display: block; width: 100%;
+  max-height: min(48dvh, 510px) !important;
+  margin: 0 !important; padding: 17px 19px !important;
+  overflow: auto !important; white-space: pre !important;
+  tab-size: 2; background: #101827 !important;
+  border: 1px solid #42516b !important;
+  border-top: 0 !important; border-radius: 0 0 9px 9px !important;
+}
+.inline-copilot-help pre code {
+  font: 15px/1.75 Consolas, 'Cascadia Code', monospace !important;
+  white-space: pre !important; display: block !important;
+}
+@media (max-width: 750px) {
+  .inline-copilot-widget { padding: 14px !important; width: calc(100vw - 30px) !important; }
+}

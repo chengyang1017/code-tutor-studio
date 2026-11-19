@@ -1,0 +1,14 @@
+.mentor-course-panel .mentor-history-toggle {font-size:13px!important;border:1px solid #485b78!important;border-radius:7px!important;padding:6px 10px!important;white-space:nowrap!important}
+.mentor-course-panel .mentor-history-panel {position:absolute;inset:76px 0 0;z-index:10;background:#171d2b;color:#e9effa;display:flex;flex-direction:column;padding:14px;min-height:0;overflow:hidden}
+.mentor-course-panel .mentor-history-panel[hidden] {display:none!important}
+.mentor-course-panel .mentor-history-head {display:flex;justify-content:space-between;align-items:center;gap:10px;padding-bottom:12px}
+.mentor-course-panel .mentor-history-head button {padding:7px 12px;border:1px solid #64748b;border-radius:8px;color:inherit;background:#29344b}
+.mentor-course-panel .mentor-history-list {overflow-y:auto;min-height:0;flex:1;display:flex;flex-direction:column;gap:10px;font-size:14px}
+.mentor-course-panel .mentor-history-entry {border:1px solid #485b78;border-radius:9px;padding:10px;background:#202a3b}
+.mentor-course-panel .mentor-history-entry summary {cursor:pointer;font-weight:600;overflow-wrap:anywhere}
+.mentor-course-panel .mentor-history-entry p {margin:8px 0;white-space:pre-wrap}
+.mentor-course-panel .mentor-history-file {padding:8px 0;border-top:1px solid #44516a}
+.mentor-course-panel .mentor-history-file button {display:block;text-align:left;width:100%;padding:8px;border:1px solid #586888;border-radius:6px;background:#2b3b56;color:#e9effa;cursor:pointer;overflow-wrap:anywhere}
+.mentor-course-panel .mentor-history-file pre {white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;padding:7px;border-radius:5px;max-height:160px;overflow:auto}
+.mentor-course-panel .mentor-history-removed {background:#4c2529;color:#ffd1d1}
+.mentor-course-panel .mentor-history-added {background:#17432f;color:#c2ffe0}

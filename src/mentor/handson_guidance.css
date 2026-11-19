@@ -1,0 +1,9 @@
+/* Hands-on guidance: one clear target in the actual source editor. */
+.editor .handson-guided-line { background: rgba(48, 149, 248, .20) !important; box-shadow: inset 0 1px rgba(104, 188, 255, .35), inset 0 -1px rgba(104, 188, 255, .20); }
+.editor .handson-guided-gutter { border-left: 5px solid #58b7ff; margin-left: 3px; }
+#handson-mode-view .handson-step { gap: 12px; }
+#handson-mode-view .handson-location-banner { color: #9cdbff; background: #1b3046; border-left: 4px solid #58b7ff; border-radius: 6px; padding: 11px 13px; font-size: 15px; font-weight: 600; }
+#handson-mode-view .handson-title { font-size: 19px; line-height: 1.45; }
+#handson-mode-view .handson-path { font-size: 15px; }
+#handson-mode-view .handson-instruction { font-size: 16px; line-height: 1.7; }
+#handson-mode-view .handson-open { background: #315da4; border-color: #508cd9; }

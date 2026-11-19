@@ -89,6 +89,7 @@ declare global {
         preferredFile?: string;
         message?: string;
       }>;
+      handsonStep?(input: unknown): Promise<unknown>;
       restoreProject(): Promise<RestoredProjectSnapshot | null>;
       readProjectFile(relativePath: string): Promise<{
         path: string;
@@ -116,7 +117,8 @@ declare global {
         type: 'file' | 'directory';
       }>;
 
-      startTerminal?(): Promise<{ cwd: string; shell: string }>;
+      chooseTerminalDirectory?(): Promise<string | null>;
+      startTerminal?(root?: string): Promise<{ cwd: string; shell: string }>;
       writeTerminal?(input: string): Promise<boolean>;
       stopTerminal?(): Promise<boolean>;
       onTerminalData?(

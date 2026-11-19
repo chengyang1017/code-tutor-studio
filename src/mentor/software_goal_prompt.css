@@ -1,0 +1,36 @@
+.software-goal-dialog {
+  position: fixed;
+  z-index: 1500;
+  left: 50%;
+  top: 17%;
+  transform: translateX(-50%);
+  width: min(470px, calc(100vw - 32px));
+  max-height: 75dvh;
+  overflow: auto;
+  padding: 16px;
+  background: #161c29;
+  border: 1px solid #4a5c7b;
+  border-radius: 15px;
+  box-shadow: 0 18px 50px #0009;
+  color: #eef3fa;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+.software-goal-dialog[hidden] { display: none !important; }
+.software-goal-heading { display: flex; align-items: center; justify-content: space-between; }
+.software-goal-heading strong { font-size: 17px; }
+.software-goal-heading button { border: 0; font-size: 22px; background: transparent; }
+.software-goal-dialog p { margin: 0; font-size: 13px; line-height: 1.6; }
+.software-goal-dialog textarea {
+  resize: vertical; width: 100%; box-sizing: border-box;
+  border: 1px solid #53637b; border-radius: 8px;
+  background: #202a3e; padding: 10px; color: inherit; font: inherit;
+}
+.software-goal-actions { display: flex; gap: 8px; }
+.software-goal-actions button { flex: 1; }
+.software-goal-dialog pre {
+  margin: 0; padding: 12px; white-space: pre-wrap; overflow-wrap: anywhere;
+  font: 13px/1.6 system-ui, sans-serif; background: #101827; border-radius: 9px;
+}
+#software-goal-open { margin-left: 8px; }

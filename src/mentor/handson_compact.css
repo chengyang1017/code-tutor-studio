@@ -1,0 +1,62 @@
+/* Compact hand-on teaching layout. Keep Monaco as the primary work area. */
+#mentor-course-panel.handson-active {
+  height: min(690px, 78dvh) !important;
+  max-height: calc(100dvh - 26px) !important;
+}
+#mentor-course-panel.handson-active #handson-mode-view {
+  overflow: hidden !important;
+  min-height: 0 !important;
+  padding: 12px 14px !important;
+  gap: 10px !important;
+}
+#handson-mode-view .handson-heading { font-size: 15px; }
+#handson-mode-view .handson-step {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding-right: 5px;
+  gap: 10px;
+  scrollbar-width: thin;
+}
+#handson-mode-view .handson-instruction {
+  font-size: 15px;
+  line-height: 1.65;
+  white-space: pre-wrap;
+}
+#handson-mode-view .handson-caption { font-size: 13px; }
+#handson-mode-view .handson-code-details {
+  border: 1px solid rgba(140,160,190,.3);
+  border-radius: 10px;
+  background: rgba(11,18,30,.5);
+  overflow: hidden;
+}
+#handson-mode-view .handson-code-details > summary {
+  cursor: pointer;
+  user-select: none;
+  padding: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+#handson-mode-view .handson-code-details > summary:focus-visible { outline: 2px solid #a59bff; }
+#handson-mode-view .handson-example {
+  margin: 0 10px 10px;
+  max-height: min(260px, 40dvh) !important;
+  font-size: 13px;
+}
+#handson-mode-view .handson-sticky-actions {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  gap: 8px;
+  padding: 12px 0 2px;
+  border-top: 1px solid rgba(140,160,190,.3);
+  background: var(--panel-bg, #161b26);
+}
+#handson-mode-view:not(.handson-has-step) .handson-sticky-actions { display: none !important; }
+#handson-mode-view .handson-sticky-actions button {
+  width: 100%;
+  padding: 11px 12px;
+  border-radius: 9px;
+  font-size: 15px;
+}

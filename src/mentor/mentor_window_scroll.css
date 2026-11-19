@@ -1,0 +1,29 @@
+/* Keep the floating tutor inside the screen and scroll its contents, not its header. */
+#mentor-course-panel.mentor-unified {
+  display: flex !important;
+  flex-direction: column !important;
+  box-sizing: border-box !important;
+  height: auto !important;
+  max-height: min(84dvh, calc(100dvh - 32px)) !important;
+  overflow: hidden !important;
+}
+#mentor-course-panel.mentor-unified[hidden] { display: none !important; }
+#mentor-course-panel.mentor-unified .mentor-course-heading,
+#mentor-course-panel.mentor-unified .mentor-unified-tabs {
+  flex: 0 0 auto !important;
+}
+#mentor-course-panel.mentor-unified .mentor-unified-content,
+#mentor-course-panel.mentor-unified .mentor-course-body {
+  flex: 1 1 auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
+  overflow-x: hidden !important;
+  overflow-y: auto !important;
+  overscroll-behavior: contain;
+  scrollbar-width: thin;
+}
+#mentor-course-panel.mentor-unified .mentor-unified-content [data-unified-output],
+#mentor-course-panel.mentor-unified .mentor-unified-plan-output {
+  overflow-wrap: anywhere;
+  white-space: pre-wrap;
+}

@@ -1,0 +1,35 @@
+.mentor-ai-tab { font-size: 12px !important; padding: 5px 9px !important; border-radius: 7px; }
+.mentor-ai-tab[data-active="true"] { background: #3b5080; color: white; }
+.mentor-course-panel[data-ai-flow="true"] .mentor-course-body { display: none !important; }
+.mentor-ai-flow { display: flex; flex-direction: column; gap: 10px; padding: 14px; overflow-y: auto; min-height: 0; max-height: calc(100dvh - 110px); font-size: 13px; }
+.mentor-ai-flow[hidden], .mentor-ai-flow [hidden] { display: none !important; }
+.mentor-ai-flow textarea { width: 100%; resize: vertical; min-height: 60px; box-sizing: border-box; border-radius: 8px; background: #141d2e; color: #f2f5fa; border: 1px solid #51617a; padding: 8px; font: inherit; }
+.mentor-ai-flow form, .mentor-ai-flow [data-ai-draft], .mentor-ai-flow [data-ai-fields] { display: flex; flex-direction: column; gap: 10px; }
+.mentor-ai-flow label { display: flex; flex-direction: column; gap: 5px; }
+.mentor-ai-flow [data-ai-status] { color: #b9c9e3; overflow-wrap: anywhere; }
+.mentor-ai-flow [data-ai-files] { white-space: pre-wrap; overflow-wrap: anywhere; }
+.mentor-ai-flow button { cursor: pointer; padding: 8px; }
+
+/* Large, click-only AI interview choices */
+#mentor-course-panel .mentor-ai-flow { font-size: 16px !important; line-height: 1.55 !important; }
+#mentor-course-panel .mentor-ai-flow strong,
+#mentor-course-panel .mentor-ai-flow legend { font-size: 17px !important; font-weight: 700; }
+#mentor-course-panel .mentor-ai-flow button { font-size: 16px !important; min-height: 46px; }
+#mentor-course-panel .mentor-ai-choice-question { border: 0; min-width: 0; margin: 0 0 12px; padding: 0; display: flex; flex-direction: column; gap: 9px; }
+#mentor-course-panel .mentor-ai-choice-question legend { margin-bottom: 10px; white-space: normal; line-height: 1.5; }
+#mentor-course-panel .mentor-ai-choice-option { display: flex !important; flex-direction: row !important; align-items: center; gap: 12px !important; padding: 13px 14px; cursor: pointer; border: 1px solid #56647c; border-radius: 10px; background: #222d40; font-size: 16px; line-height: 1.4; }
+#mentor-course-panel .mentor-ai-choice-option input { appearance: auto !important; flex: 0 0 20px; width: 20px; height: 20px; margin: 0; accent-color: #7962f5; }
+#mentor-course-panel .mentor-ai-choice-option:has(input:checked) { border-color: #a291ff; background: #37315e; }
+#mentor-course-panel .mentor-ai-choice-option:focus-within { outline: 2px solid #9a88ff; outline-offset: 2px; }
+#mentor-course-panel .mentor-ai-flow [data-ai-fields] { gap: 14px; }
+
+/* Optional freeform answer alongside AI-provided choices */
+#mentor-course-panel .mentor-ai-custom-option { border-style: dashed; }
+#mentor-course-panel .mentor-ai-custom-answer:not([hidden]) {
+  display: block !important; width: 100%; min-height: 104px;
+  box-sizing: border-box; resize: vertical; padding: 13px;
+  margin: 2px 0 10px; font: inherit; font-size: 16px;
+  line-height: 1.5; color: #edf3ff; background: #252e40;
+  border: 1px solid #8a78f5; border-radius: 10px;
+}
+#mentor-course-panel .mentor-ai-custom-answer[hidden] { display: none !important; }

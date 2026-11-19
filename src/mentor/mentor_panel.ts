@@ -98,6 +98,91 @@ function install(): boolean {
   panel.setAttribute('role', 'dialog');
   panel.setAttribute('aria-label', '机器人项目教学');
   document.body.append(panel);
+  // CODE TUTOR WHOLE PANEL DRAG V1
+  // Capture the heading before older drag handlers and move the parent panel.
+  const wholePanelHandle = panel.querySelector<HTMLElement>('.mentor-course-heading');
+  if (wholePanelHandle) {
+    let drag: { id: number; x: number; y: number; left: number; top: number } | null = null;
+    wholePanelHandle.addEventListener('pointerdown', (event: PointerEvent) => {
+      if (event.button !== 0 || (event.target as HTMLElement).closest('button, input, select, textarea, a')) return;
+      const rect = panel.getBoundingClientRect();
+      drag = { id: event.pointerId, x: event.clientX, y: event.clientY, left: rect.left, top: rect.top };
+      panel.dataset.userPositioned = 'true';
+      panel.classList.add('mentor-whole-panel-dragging');
+      event.preventDefault();
+      event.stopImmediatePropagation();
+    }, true);
+    window.addEventListener('pointermove', (event: PointerEvent) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      const maxLeft = Math.max(8, window.innerWidth - panel.offsetWidth - 8);
+      const maxTop = Math.max(8, window.innerHeight - panel.offsetHeight - 8);
+      const x = Math.max(8, Math.min(maxLeft, drag.left + event.clientX - drag.x));
+      const y = Math.max(8, Math.min(maxTop, drag.top + event.clientY - drag.y));
+      panel.style.setProperty('left', `${x}px`, 'important');
+      panel.style.setProperty('top', `${y}px`, 'important');
+      panel.style.setProperty('right', 'auto', 'important');
+      panel.style.setProperty('bottom', 'auto', 'important');
+    }, true);
+    const stopWholeDrag = (event: PointerEvent) => {
+      if (!drag || event.pointerId !== drag.id) return;
+      drag = null;
+      panel.classList.remove('mentor-whole-panel-dragging');
+    };
+    window.addEventListener('pointerup', stopWholeDrag, true);
+    window.addEventListener('pointercancel', stopWholeDrag, true);
+    window.addEventListener('resize', () => {
+      if (panel.dataset.userPositioned !== 'true') return;
+      const rect = panel.getBoundingClientRect();
+      panel.style.setProperty('left', `${Math.max(8, Math.min(window.innerWidth - panel.offsetWidth - 8, rect.left))}px`, 'important');
+      panel.style.setProperty('top', `${Math.max(8, Math.min(window.innerHeight - panel.offsetHeight - 8, rect.top))}px`, 'important');
+    });
+  }
+  // BEGIN CODE TUTOR DRAG LESSON
+  // Drag the title bar to move the card. The X button stays clickable.
+  const dragHandle = panel.querySelector<HTMLElement>('.mentor-course-heading');
+  if (dragHandle) {
+    type DragOrigin = {
+      pointerId: number;
+      clientX: number;
+      clientY: number;
+      left: number;
+      top: number;
+    };
+    let dragOrigin: DragOrigin | null = null;
+    dragHandle.addEventListener('pointerdown', (event: PointerEvent) => {
+      if (event.button !== 0 || (event.target as HTMLElement).closest('button')) return;
+      const rect = panel.getBoundingClientRect();
+      dragOrigin = {
+        pointerId: event.pointerId,
+        clientX: event.clientX,
+        clientY: event.clientY,
+        left: rect.left,
+        top: rect.top,
+      };
+      panel.dataset.userPositioned = 'true';
+      panel.classList.add('mentor-is-dragging');
+      event.preventDefault();
+    });
+    window.addEventListener('pointermove', (event: PointerEvent) => {
+      if (!dragOrigin || event.pointerId !== dragOrigin.pointerId) return;
+      const maxLeft = Math.max(8, window.innerWidth - panel.offsetWidth - 8);
+      const maxTop = Math.max(8, window.innerHeight - panel.offsetHeight - 8);
+      const left = dragOrigin.left + event.clientX - dragOrigin.clientX;
+      const top = dragOrigin.top + event.clientY - dragOrigin.clientY;
+      panel.style.left = `${Math.max(8, Math.min(maxLeft, left))}px`;
+      panel.style.top = `${Math.max(8, Math.min(maxTop, top))}px`;
+      panel.style.right = 'auto';
+      panel.style.bottom = 'auto';
+    });
+    const finishDrag = (event: PointerEvent) => {
+      if (!dragOrigin || event.pointerId !== dragOrigin.pointerId) return;
+      dragOrigin = null;
+      panel.classList.remove('mentor-is-dragging');
+    };
+    window.addEventListener('pointerup', finishDrag);
+    window.addEventListener('pointercancel', finishDrag);
+  }
+  // END CODE TUTOR DRAG LESSON
 
   const get = <T extends HTMLElement>(selector: string): T => {
     const element = panel.querySelector<T>(selector);
@@ -131,6 +216,7 @@ function install(): boolean {
   let lastPosition = '';
 
   function positionNearRobot(): void {
+    if (panel.dataset.userPositioned === 'true') return;
     if (!visible) return;
     const robot = document.getElementById('tutor-character');
     const stage = document.getElementById('editor-stage');
@@ -258,7 +344,43 @@ function install(): boolean {
     title.textContent = lesson.title;
     objective.textContent = lesson.objective;
     explanation.textContent = lesson.explanation;
-    instruction.textContent = lesson.instruction;
+    instruction.replaceChildren();
+    const commands = lesson.id === 'setup'
+      ? lesson.instruction.split(/\r?\n/).map((line) => line.trim()).filter(Boolean)
+      : [];
+    if (commands.length > 0) {
+      instruction.classList.add('mentor-command-list');
+      commands.forEach((command) => {
+        const row = document.createElement('div');
+        row.className = 'mentor-command-row';
+        const code = document.createElement('code');
+        code.textContent = command;
+        const copy = document.createElement('button');
+        copy.type = 'button';
+        copy.className = 'mentor-command-copy';
+        copy.textContent = '\u590d\u5236';
+        copy.title = '\u590d\u5236\u8fd9\u4e00\u6761\u547d\u4ee4';
+        copy.addEventListener('click', async () => {
+          try {
+            await navigator.clipboard.writeText(command);
+            copy.textContent = '\u5df2\u590d\u5236';
+            window.setTimeout(() => { copy.textContent = '\u590d\u5236'; }, 1500);
+          } catch {
+            const selection = window.getSelection();
+            const range = document.createRange();
+            range.selectNodeContents(code);
+            selection?.removeAllRanges();
+            selection?.addRange(range);
+            message.textContent = 'Select the command and press Ctrl+C.';
+          }
+        });
+        row.append(code, copy);
+        instruction.append(row);
+      });
+    } else {
+      instruction.classList.remove('mentor-command-list');
+      instruction.textContent = lesson.instruction;
+    }
     checks.replaceChildren();
     lesson.checks.forEach((check) => {
       const row = document.createElement('div');

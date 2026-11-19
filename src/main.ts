@@ -1,6 +1,26 @@
+import './mentor/inline_scroll_guard';
+import './mentor/inline_reference_enhancer';
+import { installInlineCopilotTutor } from './mentor/inline_copilot_tutor';
+import './mentor/handson_two_help.css';
+import './mentor/mentor_placement_layout';
+import './mentor/mentor_teaching_readability';
+import './mentor/handson_reference_fix.css';
+import './mentor/handson_guidance.css';
+import './mentor/mentor_split_dock';
+import './mentor/handson_taskfirst.css';
+import './mentor/handson_compact';
 import './styles.css';
+import './mentor/software_goal_prompt';
 import './project/project_home';
 import './mentor/mentor_panel';
+import './mentor/mentor_ai_flow';
+import './mentor/mentor_change_history';
+import './mentor/mentor_flow_unification.css';
+import './mentor/mentor_unified';
+import './mentor/mentor_window_scroll.css';
+import './mentor/mentor_stack_picker';
+import './mentor/mentor_create_toggle';
+import './mentor/robot_workflow';
 import './ui/runtime_i18n';
 import './tablet.css';
 import './tablet_dual.css';
@@ -13,6 +33,7 @@ import './desktop/desktop_github_workspace';
 import { CharacterController } from './character/character_controller';
 import { demoFiles } from './demo/demo_project';
 import { EditorController } from './editor/editor_controller';
+import { installAiChangeHighlights } from './editor/ai_change_highlights';
 import { installMemorizeMode } from './memorize/memorize_mode';
 import { installReaderSurface } from './reader/reader_surface';
 import { installReaderCollab } from './reader/reader_collab';
@@ -449,6 +470,62 @@ interface RuntimeMonacoEditor {
 }
 
 const editorController = new EditorController(editorElement, demoFiles);
+installInlineCopilotTutor(editorController);
+
+// Hand-on lesson location: file + real source anchor, not an AI-written edit.
+const handsonGuideDecorations = editorController.editor.createDecorationsCollection();
+window.addEventListener('code-tutor-handson-guide', (event) => {
+  const detail = (event as CustomEvent<{file?: string; anchor?: string; line?: number; task?: string}>).detail;
+  if (!detail?.file) return;
+  void (async () => {
+    try {
+      // The file opener already supports revealing project files in the tree.
+      if (editorController.path !== detail.file) {
+        await openRealProjectFile(detail.file!, false, true);
+      }
+      const model = editorController.editor.getModel();
+      if (!model) return;
+      const content = model.getValue();
+      const anchor = (detail.anchor || '').trim();
+      let line = Number.isFinite(detail.line) ? Math.floor(detail.line!) : 1;
+      let exactMatch = false;
+      if (anchor) {
+        const index = content.indexOf(anchor);
+        if (index >= 0) {
+          line = content.slice(0, index).split(/\r?\n/).length;
+          exactMatch = true;
+        }
+      }
+      line = Math.max(1, Math.min(model.getLineCount(), line));
+      const range = new monaco.Range(line, 1, line, model.getLineMaxColumn(line));
+      handsonGuideDecorations.set([{
+        range,
+        options: {
+          isWholeLine: true,
+          className: 'handson-guided-line',
+          linesDecorationsClassName: 'handson-guided-gutter',
+          overviewRuler: { color: '#66baff', position: monaco.editor.OverviewRulerLane.Center },
+          hoverMessage: { value: '手把手教学：' + (detail.task || '在这里开始编写') },
+        },
+      }]);
+      editorController.editor.revealLineInCenter(line);
+      editorController.editor.setPosition({lineNumber: line, column: 1});
+      const guide = document.getElementById('handson-location-banner');
+      if (guide) {
+        guide.textContent = exactMatch
+          ? `已定位到 ${detail.file}:${line} · 蓝色高亮处开始操作`
+          : `已打开 ${detail.file} · 这是建议起点，请结合任务确认具体位置`;
+      }
+      const status = document.getElementById('tutor-status');
+      if (status) status.textContent = `手把手教学 · ${detail.file}:${line}`;
+    } catch (error) {
+      const guide = document.getElementById('handson-location-banner');
+      if (guide) guide.textContent = `未能打开 ${detail.file}。如文件不存在，请先手动新建。`;
+    }
+  })();
+});
+
+installAiChangeHighlights(editorController);
 installMemorizeMode(editorController);
 installReaderSurface(editorController);
 installReaderCollab();
@@ -1539,6 +1616,22 @@ window.addEventListener(
   },
 );
 
+window.addEventListener('code-tutor-ai-generated-file', (event) => {
+  const target = (event as CustomEvent<{ path?: string }>).detail?.path;
+  if (!target) return;
+  void (async () => {
+    try {
+      const snapshot = await window.tutorIde.restoreProject();
+      if (!snapshot || !snapshot.files.includes(target)) {
+        throw new Error('Generated file not found in active project');
+      }
+      await activateRealProject(snapshot, target);
+      tutorStatus.textContent = `AI generated and opened ${target}`;
+    } catch (error) {
+      tutorStatus.textContent = error instanceof Error ? error.message : String(error);
+    }
+  })();
+});
 openProjectButton.addEventListener('click', async () => {
   stopRelatedTour('准备打开项目');
   stopSemanticTour('准备打开项目');
@@ -3717,3 +3810,4 @@ window.addEventListener('beforeunload', () => {
   codeNoteController.dispose();
   editorController.dispose();
 });
+import './mentor/mentor_redesign';

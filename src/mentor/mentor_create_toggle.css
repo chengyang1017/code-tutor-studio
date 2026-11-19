@@ -1,0 +1,30 @@
+/* Hide setup controls only when a real project is already open, until requested. */
+.mentor-course-panel .mentor-create-toggle-wrap {
+  display: grid;
+  gap: 6px;
+  margin-bottom: 2px;
+}
+.mentor-course-panel .mentor-create-toggle-wrap[hidden] { display: none !important; }
+.mentor-course-panel .mentor-create-toggle {
+  width: 100%;
+  min-height: 38px;
+  border: 1px solid #6656db;
+  border-radius: 8px;
+  background: #40349a;
+  color: #fff;
+  font: inherit;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+}
+.mentor-course-panel .mentor-create-toggle-note {
+  margin: 0;
+  font-size: 12px;
+  opacity: .75;
+}
+.mentor-course-panel.mentor-create-collapsed label[for="mentor-course-select"],
+.mentor-course-panel.mentor-create-collapsed #mentor-course-select,
+.mentor-course-panel.mentor-create-collapsed .mentor-stack-fields,
+.mentor-course-panel.mentor-create-collapsed [data-mentor-instruction] {
+  display: none !important;
+}

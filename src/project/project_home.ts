@@ -38,13 +38,14 @@ function installProjectHome(): void {
         <div class="project-home-options" role="group" aria-label="项目模板">
           <label><input type="radio" name="project-template" value="react-ts" checked><strong>React + TypeScript</strong><span>Vite · JSX · 组件与状态</span></label>
           <label><input type="radio" name="project-template" value="react-js"><strong>React + JavaScript</strong><span>Vite · JSX · JavaScript</span></label>
+          <label><input type="radio" name="project-template" value="flutter"><strong>Flutter Application</strong><span>官方 Flutter SDK · flutter create</span></label>
           <label><input type="radio" name="project-template" value="vanilla"><strong>HTML / CSS / JS</strong><span>不需要安装依赖</span></label>
           <label><input type="radio" name="project-template" value="empty"><strong>空白项目</strong><span>从一个 README 开始</span></label>
         </div>
         <label class="project-home-name">项目文件夹名称
           <input type="text" data-home-name value="my-new-project" maxlength="60" spellcheck="false" autocomplete="off" />
         </label>
-        <p class="project-home-help">下一步会弹出系统目录选择框。将在选定目录下新建同名文件夹，不覆盖已有内容。React 模板只生成文件，不自动安装依赖。</p>
+        <p class="project-home-help">下一步会弹出系统目录选择框。将在选定目录下新建同名文件夹，不覆盖已有内容。React 通过 Vite 官方 CLI 创建并自动安装依赖；Flutter 使用官方 Flutter SDK。创建完成才进入 IDE。</p>
         <button type="button" data-home-create class="project-home-primary">选择保存位置并创建</button>
       </section>
       <p class="project-home-status" data-home-status role="status" aria-live="polite"></p>
@@ -59,6 +60,13 @@ function installProjectHome(): void {
   const nameField = overlay.querySelector<HTMLInputElement>('[data-home-name]')!;
   const status = overlay.querySelector<HTMLElement>('[data-home-status]')!;
   let busy = false;
+  overlay.querySelectorAll<HTMLInputElement>('input[name="project-template"]').forEach((radio) => {
+    radio.addEventListener('change', () => {
+      if (!radio.checked) return;
+      if (radio.value === 'flutter' && nameField.value === 'my-new-project') nameField.value = 'my_flutter_app';
+      else if (radio.value !== 'flutter' && nameField.value === 'my_flutter_app') nameField.value = 'my-new-project';
+    });
+  });
 
   function showHome(): void {
     overlay.hidden = false;
@@ -130,9 +138,14 @@ function installProjectHome(): void {
       return;
     }
     const template = overlay.querySelector<HTMLInputElement>('input[name="project-template"]:checked')?.value ?? 'react-ts';
+    if (template === 'flutter' && !/^[a-z][a-z0-9_]*$/.test(name)) {
+      status.textContent = 'Flutter 项目名称必须以小写字母开头，只包含小写字母、数字和下划线。';
+      nameField.focus();
+      return;
+    }
     busy = true;
     createButton.disabled = true;
-    status.textContent = '请选择项目保存位置…';
+    status.textContent = '选择位置后，IDE 将执行官方项目创建与依赖安装；成功后才会打开项目…';
     try {
       const result = await window.tutorIde.createTemplateProject!({ name, template });
       if (result) window.location.reload();

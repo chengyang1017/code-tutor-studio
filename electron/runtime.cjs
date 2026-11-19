@@ -7,4 +7,5 @@ require('./file_manager_ipc.cjs');
 require('./terminal_ipc.cjs');
 require('./agent_follow_ipc.cjs');
 require('./agent_ipc.cjs');
+require('./mentor_ai_ipc.cjs');
 require('./bootstrap.cjs');

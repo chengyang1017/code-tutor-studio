@@ -1,0 +1,8 @@
+/* Task first: hints and reference code only appear on request. */
+#handson-mode-view .handson-help-controls { display:grid; grid-template-columns:1fr; gap:8px; }
+#handson-mode-view .handson-help-controls button { background:#232d41; border-color:#56637d; text-align:center; font-size:15px; }
+#handson-mode-view .handson-reference[hidden],
+#handson-mode-view .handson-explanation[hidden] { display:none !important; }
+#handson-mode-view .handson-instruction { font-size:16px; line-height:1.65; }
+#handson-mode-view .handson-reference { border:1px solid rgba(145,165,197,.25); border-radius:9px; padding:10px; }
+#handson-mode-view .handson-reference pre { font-size:14px; }
