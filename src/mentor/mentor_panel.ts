@@ -94,7 +94,9 @@ function install(): boolean {
       </div>
     </div>
   `;
-  workspace.append(panel);
+  panel.setAttribute('role', 'dialog');
+  panel.setAttribute('aria-label', '机器人项目教学');
+  document.body.append(panel);
 
   const get = <T extends HTMLElement>(selector: string): T => {
     const element = panel.querySelector<T>(selector);
@@ -124,6 +126,75 @@ function install(): boolean {
   let currentRoot = '';
   let visible = false;
   let animationSequence = 0;
+  let positionFrame = 0;
+  let lastPosition = '';
+
+  function positionNearRobot(): void {
+    if (!visible) return;
+    const robot = document.getElementById('tutor-character');
+    const stage = document.getElementById('editor-stage');
+    if (!stage) return;
+
+    const stageRect = stage.getBoundingClientRect();
+    const robotRect = robot?.getBoundingClientRect();
+    const robotVisible = Boolean(
+      robot && !robot.classList.contains('offscreen') &&
+      robotRect && robotRect.width > 0 && robotRect.height > 0 &&
+      robotRect.right >= stageRect.left && robotRect.left <= stageRect.right &&
+      robotRect.bottom >= stageRect.top && robotRect.top <= stageRect.bottom,
+    );
+    const padding = 12;
+    const gap = 14;
+    const width = Math.min(380, Math.max(260, window.innerWidth - padding * 2));
+    const height = Math.min(panel.offsetHeight, window.innerHeight - padding * 2);
+    const boundsLeft = Math.max(padding, stageRect.left + padding);
+    const boundsRight = Math.min(window.innerWidth - padding, stageRect.right - padding);
+    const boundsTop = Math.max(padding, stageRect.top + padding);
+    const boundsBottom = Math.min(window.innerHeight - padding, stageRect.bottom - padding);
+    const maxX = Math.max(boundsLeft, boundsRight - width);
+    const maxY = Math.max(boundsTop, boundsBottom - height);
+    let x: number;
+    let y: number;
+    let side = 'right';
+
+    if (robotVisible && robotRect) {
+      const rightX = robotRect.right + gap;
+      const leftX = robotRect.left - width - gap;
+      const rightFits = rightX + width <= boundsRight;
+      const leftFits = leftX >= boundsLeft;
+      if (rightFits || (!leftFits && boundsRight - robotRect.right >= robotRect.left - boundsLeft)) {
+        x = rightX;
+      } else {
+        x = leftX;
+        side = 'left';
+      }
+      y = robotRect.top + robotRect.height / 2 - Math.min(height, 440) * .38;
+    } else {
+      x = stageRect.left + Math.max(0, (stageRect.width - width) / 2);
+      y = stageRect.top + 30;
+      side = 'floating';
+    }
+
+    x = Math.min(maxX, Math.max(boundsLeft, x));
+    y = Math.min(maxY, Math.max(boundsTop, y));
+    const next = Math.round(x) + ',' + Math.round(y) + ',' + side;
+    if (lastPosition !== next) {
+      lastPosition = next;
+      panel.style.left = Math.round(x) + 'px';
+      panel.style.top = Math.round(y) + 'px';
+      panel.dataset.side = side;
+    }
+  }
+
+  function trackPosition(): void {
+    if (!visible) { positionFrame = 0; return; }
+    positionNearRobot();
+    positionFrame = window.requestAnimationFrame(trackPosition);
+  }
+
+  function startTracking(): void {
+    if (!positionFrame) positionFrame = window.requestAnimationFrame(trackPosition);
+  }
 
   async function animateStep(speech?: string): Promise<void> {
     const sequence = ++animationSequence;
@@ -208,6 +279,10 @@ function install(): boolean {
     panel.hidden = !visible;
     button.dataset.active = String(show);
     workspace!.dataset.mentorOpen = String(show);
+    document.documentElement.classList.toggle('mentor-popover-visible', show);
+    button.setAttribute('aria-expanded', String(show));
+    if (show) startTracking();
+    else { window.cancelAnimationFrame(positionFrame); positionFrame = 0; lastPosition = ''; }
     if (show) {
       try { await syncProject(); }
       catch { currentRoot = ''; }
@@ -218,8 +293,13 @@ function install(): boolean {
     }
   }
 
+  button.setAttribute('aria-controls', 'mentor-course-panel');
+  button.setAttribute('aria-expanded', 'false');
   button.addEventListener('click', () => { void toggle(!visible); });
   close.addEventListener('click', () => { void toggle(false); });
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Escape' && visible) { event.stopPropagation(); void toggle(false); }
+  });
   // Clicking the animated tutor opens the course selector.
   const robot = document.getElementById('tutor-character');
   robot?.addEventListener('click', (event) => {
