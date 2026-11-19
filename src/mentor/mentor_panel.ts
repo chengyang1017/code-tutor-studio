@@ -173,13 +173,19 @@ function install(): boolean {
 
   button.addEventListener('click', () => { void toggle(!visible); });
   close.addEventListener('click', () => { void toggle(false); });
-  // Robot remains a code-navigation control; Alt+click opens its course chooser.
-  document.getElementById('tutor-character')?.addEventListener('click', (event) => {
-    if (!(event instanceof MouseEvent) || !event.altKey) return;
+  // Clicking the animated tutor opens the course selector.
+  const robot = document.getElementById('tutor-character');
+  robot?.addEventListener('click', (event) => {
     event.preventDefault();
     event.stopImmediatePropagation();
     void toggle(true);
   }, true);
+  robot?.addEventListener('keydown', (event) => {
+    if (event.key === 'Enter' || event.key === ' ') {
+      event.preventDefault();
+      void toggle(true);
+    }
+  });
 
   get<HTMLSelectElement>('#mentor-course-select').addEventListener('change', () => {
     step = 0; passed = false; persist(); render();
