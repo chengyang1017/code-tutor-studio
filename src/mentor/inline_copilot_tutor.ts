@@ -122,35 +122,15 @@ export function installInlineCopilotTutor(controller: EditorController): void {
   // ROBOT_GHOST_RESTORE_V1
   // Reuse the existing completion. Never request AI again just to redisplay.
   function restoreGhost(): void {
-    const active = ghost;
-    if (!visible || !active || !current) {
-      say('当前没有可恢复的代码提示。请回复“不会写”重新获取。');
+    if (!ghost || !current || controller.path !== current.file ||
+        editor.getModel() !== ghost.model) {
+      say('当前没有可恢复的参考提示，请先打开任务文件。');
       return;
     }
-    if (controller.path !== current.file || editor.getModel() !== active.model) {
-      say('请先打开 ' + current.file + '，再点“重显提示”。');
-      return;
-    }
-    const model = active.model;
-    const line = active.line;
-    const column = active.column;
-    if (line < 1 || line > model.getLineCount() ||
-        column < 1 || column > model.getLineMaxColumn(line)) {
-      say('代码已发生变化，原位置不存在了。请回复“不会写”重新定位。');
-      return;
-    }
-    editor.focus();
-    editor.setPosition({lineNumber: line, column});
-    editor.revealLineInCenter(line);
+    // Do not steal focus or overwrite the cursor position.
     refreshTeachingGhost();
-    editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.trigger', {});
-    // Monaco may clear a suggestion during focus/cursor transitions.
-    window.setTimeout(() => {
-      if (visible && ghost === active && editor.getModel() === model) {
-        refreshTeachingGhost();
-    editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.trigger', {});
-      }
-    }, 100);
+    editor.revealLineInCenter(Math.max(1, Math.min(ghost.line, ghost.model.getLineCount())));
+    say('灰色参考已重新定位到代码中。可以继续输入，不必移动光标到提示处。');
   }
 
   restore.addEventListener('click', restoreGhost);
@@ -158,28 +138,15 @@ export function installInlineCopilotTutor(controller: EditorController): void {
     monaco.KeyMod.CtrlCmd | monaco.KeyMod.Alt | monaco.KeyCode.KeyG,
     restoreGhost,
   );
-  // When returning focus directly to the code at its suggestion position,
-  // bring the suggestion back without moving the user's cursor.
-  editor.onDidFocusEditorText(() => {
-    if (!visible || !ghost || controller.path !== current?.file) return;
-    const pos = editor.getPosition();
-    if (pos && pos.lineNumber === ghost.line && pos.column === ghost.column) {
-      window.setTimeout(() => {
-        if (visible && ghost) {
-          refreshTeachingGhost();
-    editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.trigger', {});
-        }
-      }, 50);
-    }
-  });
-
   // ROBOT_CHOICE_STAGE_V1
   let decisionMade = false;
   function ask(): void {
-    choices.hidden = decisionMade;
-    footer.hidden = false;
+    // Each new step asks the learner to choose, even after earlier choices.
+    decisionMade = false;
+    choices.hidden = false;
+    footer.hidden = true;
     next.hidden = true;
-    input.placeholder = decisionMade ? '输入问题或“写好了”…' : '也可以直接输入回复…';
+    input.placeholder = '也可以直接输入回复…';
   }
   const overlay: monaco.editor.IOverlayWidget = {
     getId: () => 'inline-copilot-tutor-widget',
@@ -237,38 +204,74 @@ export function installInlineCopilotTutor(controller: EditorController): void {
   );
   void provider;
 
-  // ROBOT_PERSISTENT_GHOST_V2: persistent decoration, independent of cursor focus.
-  // This paints a SINGLE logical line, never an answer pane or view zone.
+  // ROBOT_GHOST_STATE_REPAIR_V1
+  // Persistent Monaco injected text is independent from caret and focus.
+  // Keep it at the end of an existing line, never overprint source code.
   const teachingGhostDecorations = editor.createDecorationsCollection();
+  
+  // ROBOT_PINNED_GHOST_VISIBILITY_V3
+  // Monaco content widget: presentation only, no edits, no focus, no click interception.
+  // The text is owned by ghost state, not Monaco's temporary inline completion state.
+  const pinnedReference = document.createElement('pre');
+  pinnedReference.setAttribute('aria-label', 'Persistent teaching code reference');
+  pinnedReference.style.cssText = [
+    'margin:0', 'padding:0', 'border:0', 'background:transparent',
+    'font:12px/19px Consolas,monospace', 'color:#a4b8d7',
+    'opacity:.84', 'white-space:pre', 'pointer-events:none',
+    'user-select:none', 'max-width:460px', 'overflow:hidden',
+    'text-shadow:0 1px 1px #121926'
+  ].join(';');
+  let pinnedPosition: monaco.Position | null = null;
+  const pinnedWidget: monaco.editor.IContentWidget = {
+    getId: () => 'robot-pinned-teaching-reference-v3',
+    getDomNode: () => pinnedReference,
+    getPosition: () => pinnedPosition ? {
+      position: pinnedPosition,
+      preference: [
+        monaco.editor.ContentWidgetPositionPreference.BELOW,
+        monaco.editor.ContentWidgetPositionPreference.ABOVE,
+      ],
+    } : null,
+  };
+  editor.addContentWidget(pinnedWidget);
+
   function refreshTeachingGhost(): void {
     teachingGhostDecorations.clear();
+    pinnedPosition = null;
+    pinnedReference.textContent = '';
     const active = ghost;
     const model = editor.getModel();
-    if (!visible || !active || !current || !model ||
-        active.model !== model || controller.path !== current.file) return;
-    const line = active.line;
-    if (!Number.isInteger(line) || line < 1 || line > model.getLineCount()) return;
-    const column = Math.max(1, Math.min(active.column, model.getLineMaxColumn(line)));
-    const hintLines = active.text.replace(/\r\n?/g, '\n').split('\n');
-    const first = hintLines.find(value => value.trim().length > 0);
-    if (!first) return;
-    const label = active.kind === 'preview' ? `  ⇢ 参考（仅供对照）：${first.trim()}`
-      : hintLines[0] === '' ? ' ↵ ' + first : first;
+    if (!visible || !active || !current || !model || active.model !== model) {
+      editor.layoutContentWidget(pinnedWidget);
+      return;
+    }
+    // File switching is controlled by the editor model identity, not by
+    // comparing an absolute controller path to a potentially relative task path.
+    const line = Math.max(1, Math.min(model.getLineCount(), active.line));
+    const column = Math.max(1, Math.min(model.getLineMaxColumn(line), active.column));
+    const lines = active.text.replace(/\r\n?/g, '\n').split('\n');
+    const nonEmpty = lines.filter(part => part.trim());
+    if (!nonEmpty.length) { editor.layoutContentWidget(pinnedWidget); return; }
+    const label = nonEmpty[0].trim().slice(0, 175);
+    // Preserve the existing one-line ghost decoration as an inline cue.
     teachingGhostDecorations.set([{
       range: new monaco.Range(line, column, line, column),
       options: {
         stickiness: monaco.editor.TrackedRangeStickiness.NeverGrowsWhenTypingAtEdges,
-        after: {
-          content: label.slice(0, 220),
-          inlineClassName: 'robot-persistent-ghost-inline',
-        },
+        after: {content: '  ⇢ ' + label, inlineClassName: 'robot-persistent-ghost-inline'},
       },
     }]);
+    // Also draw a small, cursor-independent multiline preview INSIDE Monaco.
+    // It is transparent and cannot capture keyboard or mouse events.
+    pinnedPosition = new monaco.Position(line, column);
+    pinnedReference.textContent = nonEmpty.slice(0, 5).join('\n').slice(0, 580) +
+      (nonEmpty.length > 5 ? '\n…' : '');
+    pinnedReference.style.display = 'block';
+    editor.layoutContentWidget(pinnedWidget);
   }
+
   editor.onDidChangeModelContent(() => refreshTeachingGhost());
   editor.onDidChangeModel(() => refreshTeachingGhost());
-
-
 
   // ROBOT_VISIBLE_FALLBACK_GHOST_V1
   // If AI returned source but an exact edit cannot be established, never
@@ -534,9 +537,8 @@ export function installInlineCopilotTutor(controller: EditorController): void {
           kind: aligned.kind, text: aligned.text,
         };
       }
-      editor.setPosition({lineNumber: ghost.line, column: ghost.column});
       editor.revealLineInCenter(aligned.line);
-      say(`文件：${file}\n${aligned.reason}\n灰色代码提示会出现在编辑器对应位置。\n可以跟着输入，或按 Tab 接受这一处修改。`);
+      say(`文件：${file}\n${aligned.reason}\n灰色参考会固定在编辑器对应位置。\n可以跟着输入，或按 Tab 接受这一处修改。`);
     } else if (place.action === 'before' || place.action === 'after') {
       // Only insert a new block when it does not already match an existing
       // anchor; never replace a whole existing function in this fallback.
@@ -544,8 +546,8 @@ export function installInlineCopilotTutor(controller: EditorController): void {
       const safe = !snippet.split('\n').some(part =>
         part.trim().length > 10 && model.getValue().includes(part.trim()));
       if (!safe) {
-        say(`文件：${file}，第 ${line} 行。\n参考答案和现有代码有重复，暂不显示整块补全，以免添加重复函数。`);
-        ask(); return;
+        previewUnmatched(model, file, snippet, line, '参考代码与现有代码有重叠，以下仅供对照，不会自动插入重复函数。');
+        return;
       }
       if (afterLine > 0) {
         // Monaco multiline ghosts are reliable when anchored at the END
@@ -554,8 +556,8 @@ export function installInlineCopilotTutor(controller: EditorController): void {
         const braceCount = (before.match(/\{/g) || []).length -
           (before.match(/\}/g) || []).length;
         if (braceCount > 0 && /^\s*(?:export\s+)?(?:type|interface|function|const|class)\s/.test(snippet)) {
-          say(`文件：${file}。\n当前定位会把新声明放到现有代码块内部。请让机器人重新定位到完整声明结束的位置。`);
-          ask(); return;
+          previewUnmatched(model, file, snippet, line, '定位点可能位于现有代码块内部，参考内容仅供对照。');
+          return;
         }
         ghost = {
           model, line: afterLine, column: model.getLineMaxColumn(afterLine),
@@ -568,9 +570,8 @@ export function installInlineCopilotTutor(controller: EditorController): void {
           text: snippet.replace(/\n/g, model.getEOL()) + model.getEOL(),
         };
       }
-      editor.setPosition({lineNumber: ghost.line, column: ghost.column});
       editor.revealLineInCenter(ghost.line);
-      say(`文件：${file}\n${place.action === 'before' ? '在' : '紧接'}第 ${line} 行${place.action === 'before' ? '之前' : '之后'}新增代码。\n灰色提示将在编辑器中显示，按 Tab 接受。`);
+      say(`文件：${file}\n${place.action === 'before' ? '在' : '紧接'}第 ${line} 行${place.action === 'before' ? '之前' : '之后'}新增代码。\n灰色参考将固定显示在编辑器中；可安全补全时支持 Tab。`);
     } else {
       previewUnmatched(model, file, snippet, line, '这段代码尚不能安全对应到具体替换范围。');
       return;
@@ -590,10 +591,7 @@ export function installInlineCopilotTutor(controller: EditorController): void {
     editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.trigger', {});
       }
     }, 120);
-    window.setTimeout(() => {
-      if (!visible || !ghost || current !== step || suppliedCount > 0) return;
-      say(`文件：${file}，第 ${ghost.line} 行。\n目前 Monaco 未收到可显示的补全内容，因此不会声称幽灵已出现。\n请确认编辑器焦点在该行，并再次回复“不会写”。`);
-    }, 800);
+
   }
 
   async function verify(): Promise<void> {
@@ -601,8 +599,8 @@ export function installInlineCopilotTutor(controller: EditorController): void {
     say('我来检查你写的代码…');
     const result = await request('verify');
     if (!isVerify(result)) return;
-    clearGhost();
     if (result.passed) {
+      clearGhost();
       say(`${result.feedback || '写对了！'}\n\n要继续下一步吗？`);
       choices.hidden = true;
       footer.hidden = false;
