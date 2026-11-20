@@ -1,0 +1,420 @@
+import type { EditorController } from '../editor/editor_controller';
+import { monaco } from '../editor/monaco_setup';
+import './inline_copilot_tutor.css';
+import './robot_dialog_tutor.css';
+
+type Step = {
+  file: string;
+  title: string;
+  instruction: string;
+  explanation: string;
+  example: string;
+  anchor?: string;
+  line?: number;
+};
+type Verify = { passed: boolean; feedback: string };
+type Project = { rootPath: string; files: string[] };
+type Api = {
+  restoreProject: () => Promise<Project | null>;
+  handsonStep?: (input: unknown) => Promise<unknown>;
+};
+type Placement = {
+  action?: string;
+  line?: number;
+  anchor?: string;
+  file?: string;
+  verified?: boolean;
+};
+type Ghost = { model: monaco.editor.ITextModel; startOffset: number; text: string };
+
+function isStep(value: unknown): value is Step {
+  return !!value && typeof value === 'object' &&
+    'file' in value && typeof value.file === 'string';
+}
+function isVerify(value: unknown): value is Verify {
+  return !!value && typeof value === 'object' &&
+    'passed' in value && typeof value.passed === 'boolean';
+}
+
+export function installInlineCopilotTutor(controller: EditorController): void {
+  if (/Android/i.test(navigator.userAgent)) return; // Electron desktop only
+  if (document.getElementById('inline-copilot-launch')) return;
+  const bar = document.querySelector<HTMLElement>('.commandbar');
+  const api = window.tutorIde as Api;
+  if (!bar || !api?.restoreProject) return;
+
+  const launch = document.createElement('button');
+  launch.id = 'inline-copilot-launch';
+  launch.className = 'inline-copilot-launch';
+  launch.type = 'button';
+  launch.textContent = '🤖 手把手';
+  const holder = document.createElement('div');
+  holder.className = 'command-group';
+  holder.append(launch);
+  bar.append(holder);
+
+  const editor = controller.editor;
+  const box = document.createElement('section');
+  box.className = 'inline-copilot-widget robot-dialog-tutor inline-copilot-hidden';
+  box.setAttribute('aria-label', '机器人手把手教学');
+  box.innerHTML = `
+    <header class="robot-dialog-head"><span>🤖 机器人</span><button data-close type="button" aria-label="关闭">×</button></header>
+    <div data-bubble class="robot-dialog-bubble" role="status" aria-live="polite">你想开发什么？告诉我，我们一步一步来。</div>
+    <div data-choices class="robot-dialog-choices" hidden>
+      <button data-yes type="button">我会写</button>
+      <button data-no type="button">不会写</button>
+    </div>
+    <form data-form class="robot-dialog-form">
+      <input data-input maxlength="2000" placeholder="输入你想开发的功能…" aria-label="回复机器人" />
+      <button data-send type="submit" aria-label="发送">➤</button>
+    </form>
+    <div data-footer class="robot-dialog-footer" hidden>
+      <button data-check type="button">检查代码</button>
+      <button data-next type="button" hidden>下一步</button>
+    </div>
+  `;
+  const el = <T extends HTMLElement>(selector: string) => box.querySelector<T>(selector)!;
+  const bubble = el<HTMLElement>('[data-bubble]');
+  const form = el<HTMLFormElement>('[data-form]');
+  const input = el<HTMLInputElement>('[data-input]');
+  const choices = el<HTMLElement>('[data-choices]');
+  const yes = el<HTMLButtonElement>('[data-yes]');
+  const no = el<HTMLButtonElement>('[data-no]');
+  const check = el<HTMLButtonElement>('[data-check]');
+  const next = el<HTMLButtonElement>('[data-next]');
+  const footer = el<HTMLElement>('[data-footer]');
+  const send = el<HTMLButtonElement>('[data-send]');
+  let visible = false;
+  let busy = false;
+  let goal = '';
+  let current: Step | null = null;
+  let history: Step[] = [];
+  let projectRoot = '';
+  let ghost: Ghost | null = null;
+  let previewZoneId: string | null = null;
+  let ghostStateVersion = 0;
+
+  function say(text: string): void { bubble.textContent = text; }
+  function setBusy(value: boolean): void {
+    busy = value;
+    input.disabled = value;
+    send.disabled = value;
+    yes.disabled = value;
+    no.disabled = value;
+    check.disabled = value;
+    next.disabled = value;
+  }
+  function clearGhost(): void {
+    if (previewZoneId) {
+      const oldId = previewZoneId;
+      editor.changeViewZones(accessor => accessor.removeZone(oldId));
+      previewZoneId = null;
+    }
+    ghost = null;
+    ghostStateVersion++;
+    editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.hide', {});
+  }
+  function ask(): void {
+    choices.hidden = false;
+    footer.hidden = false;
+    next.hidden = true;
+    input.placeholder = '也可以回复“会”或“不会”';
+  }
+  const overlay: monaco.editor.IOverlayWidget = {
+    getId: () => 'inline-copilot-tutor-widget',
+    getDomNode: () => box,
+    getPosition: () => ({
+      preference: monaco.editor.OverlayWidgetPositionPreference.TOP_RIGHT_CORNER,
+    }),
+  };
+  editor.addOverlayWidget(overlay);
+
+  // Use Monaco's native inline suggestion channel. This never writes a file
+  // until the learner intentionally accepts a completion (Tab).
+  editor.updateOptions({inlineSuggest: {enabled: true}});
+  const provider = monaco.languages.registerInlineCompletionsProvider(
+    ['typescript', 'javascript', 'typescriptreact', 'javascriptreact', 'dart',
+      'json', 'css', 'html', 'python', 'plaintext', 'java', 'kotlin', 'csharp'],
+    {
+      provideInlineCompletions(model, position) {
+        const active = ghost;
+        if (!visible || !active || model !== active.model ||
+            model !== editor.getModel() || !current ||
+            controller.path !== current.file) return { items: [] };
+        const offset = model.getOffsetAt(position);
+        if (offset < active.startOffset) return { items: [] };
+        const typed = model.getValue().slice(active.startOffset, offset);
+        if (!active.text.startsWith(typed)) return { items: [] };
+        const rest = active.text.slice(typed.length);
+        if (!rest) return { items: [] };
+        return {items: [{
+          insertText: rest,
+          range: new monaco.Range(position.lineNumber, position.column,
+            position.lineNumber, position.column),
+        }]};
+      },
+      disposeInlineCompletions() {},
+    },
+  );
+  void provider;
+  void ghostStateVersion;
+
+  // Always show a readable preview INSIDE Monaco, even if its inline
+  // completion engine cannot render a ghost on top of existing code.
+  function showEditorPreview(model: monaco.editor.ITextModel, line: number, source: string, action: string): void {
+    if (previewZoneId) {
+      const oldId = previewZoneId;
+      editor.changeViewZones(accessor => accessor.removeZone(oldId));
+      previewZoneId = null;
+    }
+    const container = document.createElement('div');
+    container.className = 'robot-code-preview';
+    const title = document.createElement('div');
+    title.className = 'robot-code-preview-heading';
+    const desc = action === 'replace'
+      ? '修改原代码（不是新增一份）'
+      : action === 'before' ? '在定位行之前新增代码'
+      : action === 'after' ? '在定位行之后新增代码'
+      : '请先对照定位行确认如何修改';
+    title.textContent = `📍 第 ${line} 行：${desc}`;
+    const pre = document.createElement('pre');
+    pre.textContent = source;
+    pre.setAttribute('aria-label', '编辑器内参考代码');
+    container.append(title, pre);
+    // No nested vertical scrollbar: Monaco handles the scrolling.
+    const count = source.split(/\r?\n/).length;
+    const height = Math.min(5000, Math.max(88, count * 23 + 55));
+    editor.changeViewZones(accessor => {
+      previewZoneId = accessor.addZone({
+        afterLineNumber: Math.max(0, line),
+        heightInPx: height,
+        domNode: container,
+        suppressMouseDown: true,
+      });
+    });
+    editor.revealLineInCenter(Math.max(1, line));
+  }
+
+  function open(): void {
+    visible = true;
+    const otherPanel = document.getElementById('mentor-course-panel');
+    if (otherPanel) otherPanel.hidden = true;
+    box.classList.remove('inline-copilot-hidden');
+    editor.layoutOverlayWidget(overlay);
+    input.focus();
+  }
+  function close(): void {
+    visible = false;
+    clearGhost();
+    box.classList.add('inline-copilot-hidden');
+    editor.layoutOverlayWidget(overlay);
+    editor.focus();
+  }
+  launch.addEventListener('click', () => visible ? close() : open());
+  el<HTMLButtonElement>('[data-close]').addEventListener('click', close);
+  // Keep dragging/clicking the dialog from selecting text inside Monaco.
+  box.addEventListener('pointerdown', e => e.stopPropagation());
+  box.addEventListener('mousedown', e => e.stopPropagation());
+  box.addEventListener('click', e => e.stopPropagation());
+
+  async function request(mode: 'next' | 'verify' | 'reference'): Promise<unknown> {
+    if (busy || !api.handsonStep) {
+      if (!api.handsonStep) say('当前没有连接教学接口。');
+      return null;
+    }
+    setBusy(true);
+    try {
+      const project = await api.restoreProject();
+      if (!project) throw new Error('请先打开一个本地项目。');
+      if (project.rootPath !== projectRoot) {
+        projectRoot = project.rootPath;
+        history = [];
+        current = null;
+        clearGhost();
+      }
+      return await api.handsonStep({mode, goal, previous: current, history});
+    } catch (err) {
+      say(err instanceof Error ? err.message : String(err));
+      return null;
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function navigate(step: Step): Promise<boolean> {
+    const file = step.file;
+    if (!file || file.startsWith('/') || file.includes('..') || /^[A-Z]:/i.test(file)) {
+      say('AI 返回的文件路径不安全，请重新生成这一步。');
+      return false;
+    }
+    const project = await api.restoreProject();
+    if (!project?.files.includes(file)) {
+      say(`这一步需要先创建文件：${file}\n请创建并打开它，再回复“不会写”或“会写”。`);
+      return false;
+    }
+    window.dispatchEvent(new CustomEvent('code-tutor-handson-guide', {
+      detail: {file, anchor: step.anchor || '', line: step.line || 1, task: step.title},
+    }));
+    for (let i = 0; i < 20 && visible && current === step; i++) {
+      if (controller.path === file && editor.getModel()) {
+        const model = editor.getModel()!;
+        const offset = step.anchor ? model.getValue().indexOf(step.anchor) : -1;
+        const wanted = offset >= 0 ? model.getPositionAt(offset).lineNumber : step.line || 1;
+        editor.revealLineInCenter(Math.max(1, Math.min(model.getLineCount(), wanted)));
+        return true;
+      }
+      await new Promise<void>(resolve => window.setTimeout(resolve, 100));
+    }
+    return false;
+  }
+
+  async function nextStep(): Promise<void> {
+    if (!goal.trim()) { say('先告诉我你想开发什么功能。'); return; }
+    clearGhost();
+    choices.hidden = true;
+    footer.hidden = true;
+    say('我先看看项目，找出下一步…');
+    const result = await request('next');
+    if (!isStep(result)) return;
+    current = result;
+    history.push(result);
+    await navigate(result);
+    say(`第 ${history.length} 步：${result.title || '开始编写'}\n文件：${result.file}\n${result.instruction || ''}\n\n这一步你会写吗？`);
+    ask();
+  }
+
+  async function showReference(): Promise<void> {
+    if (!current || busy) return;
+    const step = current;
+    choices.hidden = true;
+    say(`好的，我告诉你代码写在哪里。\n文件：${step.file}\n正在准备代码提示…`);
+    const result = await request('reference');
+    if (step !== current) return;
+    if (!result || typeof result !== 'object' || !('example' in result) ||
+        typeof result.example !== 'string' || !result.example.trim()) {
+      say('这一步还没有生成参考代码。你可以再次回复“不会写”。');
+      ask();
+      return;
+    }
+    const place = 'placement' in result && result.placement &&
+      typeof result.placement === 'object'
+      ? result.placement as Placement : null;
+    const file = place?.file || step.file;
+    if (file !== step.file || controller.path !== file) {
+      say(`请先打开 ${step.file}，再回复“不会写”。`);
+      ask();
+      return;
+    }
+    const model = editor.getModel();
+    if (!model) {
+      say('编辑器尚未打开文件，请先打开目标文件。');
+      ask();
+      return;
+    }
+    const line = place?.verified && Number.isInteger(place.line) &&
+      place.line! >= 1 && place.line! <= model.getLineCount()
+        ? place.line! : Math.max(1, Math.min(model.getLineCount(), step.line || 1));
+    const referenceCode = result.example.trim().replace(/\r\n|\r|\n/g, model.getEOL());
+    // Monaco view zone is deterministic even on an occupied line.
+    showEditorPreview(model, line, referenceCode, place?.action || '');
+    if (!place?.verified) {
+      say(`文件：${file}，第 ${line} 行附近。\n代码显示在目标行下方；具体修改范围尚未核实，请核对原代码后再写。`);
+      editor.focus();
+      return;
+    }
+    let insertionLine = line;
+    let insertionCol = 1;
+    let text = result.example.trim().replace(/\r\n|\r|\n/g, model.getEOL());
+    const eol = model.getEOL();
+    if (place.action === 'before') {
+      text += eol;
+    } else if (place.action === 'after') {
+      if (line < model.getLineCount()) {
+        insertionLine = line + 1;
+        text += eol;
+      } else {
+        insertionCol = model.getLineMaxColumn(line);
+        text = eol + text;
+      }
+    } else if (place.action === 'replace') {
+      say(`文件：${file}，第 ${line} 行附近。\n参考答案显示在目标行下方，跟着编辑器滚动即可阅读。\n这是替换操作：修改第 ${line} 行开始的现有函数，不要在原函数上方再新增一份。`);
+      footer.hidden = false;
+      editor.focus();
+      return;
+    } else {
+      say(`文件：${file}，第 ${line} 行附近。\n参考代码已显示在编辑器中，请对照着修改。`);
+      footer.hidden = false;
+      editor.focus();
+      return;
+    }
+    const start = {lineNumber: insertionLine, column: insertionCol};
+    // Don't show fake ghost text if insertion would interrupt existing content.
+    if (insertionCol === 1 && model.getLineContent(insertionLine).trim().length > 0) {
+      // Inserting a new line above existing content is safe.
+    }
+    ghost = {model, startOffset: model.getOffsetAt(start), text};
+    editor.setPosition(start);
+    editor.revealLineInCenter(insertionLine);
+    say(`文件：${file}，第 ${insertionLine} 行附近。\n参考代码已经显示在编辑器中。你可以照着输入；如果出现行内补全，也可以按 Tab 接受。`);
+    footer.hidden = false;
+    choices.hidden = true;
+    editor.focus();
+    editor.trigger('robot-dialog-tutor', 'editor.action.inlineSuggest.trigger', {});
+  }
+
+  async function verify(): Promise<void> {
+    if (!current || busy) return;
+    say('我来检查你写的代码…');
+    const result = await request('verify');
+    if (!isVerify(result)) return;
+    clearGhost();
+    if (result.passed) {
+      say(`${result.feedback || '写对了！'}\n\n要继续下一步吗？`);
+      choices.hidden = true;
+      footer.hidden = false;
+      next.hidden = false;
+    } else {
+      say(`${result.feedback || '还有地方需要调整。'}\n\n需要我再次显示代码提示吗？`);
+      ask();
+    }
+  }
+
+  form.addEventListener('submit', e => {
+    e.preventDefault();
+    const reply = input.value.trim();
+    if (!reply || busy) return;
+    input.value = '';
+    if (!goal) {
+      goal = reply;
+      history = [];
+      current = null;
+      void nextStep();
+    } else if (/^(不会|不会写|不懂|不会啊|不会呢|不知道|给我提示|提示|no|help)$/i.test(reply)) {
+      void showReference();
+    } else if (/^(会|会写|我会|我会写|yes|自己写)$/i.test(reply)) {
+      if (current) {
+        say(`好的！就在 ${current.file} 里写。\n完成后点“检查代码”。需要参考时直接回复“不会写”。`);
+        choices.hidden = true;
+        footer.hidden = false;
+        void navigate(current);
+      }
+    } else if (/^(检查|检查代码|写好了|完成了|好了)$/i.test(reply)) {
+      void verify();
+    } else if (/^(下一步|继续|继续下一步)$/i.test(reply)) {
+      if (!next.hidden) void nextStep();
+      else say('先完成并检查这一步，再继续。');
+    } else {
+      say('你可以回复“会写”“不会写”或“写好了”。我会按当前步骤继续指导。');
+    }
+  });
+  yes.addEventListener('click', () => {
+    if (!current) return;
+    say(`很好！在 ${current.file} 里试着写。\n完成后点击“检查代码”。不会了随时回复我。`);
+    choices.hidden = true;
+    footer.hidden = false;
+    void navigate(current);
+  });
+  no.addEventListener('click', () => { void showReference(); });
+  check.addEventListener('click', () => { void verify(); });
+  next.addEventListener('click', () => { void nextStep(); });
+}

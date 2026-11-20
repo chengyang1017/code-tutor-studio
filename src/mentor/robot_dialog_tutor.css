@@ -1,0 +1,96 @@
+/* Minimal Electron robot conversation; all source code remains in Monaco. */
+.inline-copilot-widget.robot-dialog-tutor {
+  box-sizing: border-box;
+  width: min(332px, calc(100vw - 36px)) !important;
+  max-height: min(315px, 65vh) !important;
+  overflow: auto !important;
+  padding: 12px !important;
+  background: #1a2232 !important;
+  border: 1px solid #57637c !important;
+  border-radius: 14px !important;
+  color: #eef2ff !important;
+  box-shadow: 0 12px 34px #0008;
+  font: 13px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;
+  pointer-events: auto;
+  overscroll-behavior: contain;
+}
+.robot-dialog-tutor .robot-dialog-head {
+  display: flex; align-items: center; justify-content: space-between;
+  font-weight: 700; margin-bottom: 8px;
+}
+.robot-dialog-tutor .robot-dialog-head button {
+  border: 0; background: transparent; color: #c9d5eb; font-size: 21px;
+  padding: 0 5px; cursor: pointer;
+}
+.robot-dialog-tutor .robot-dialog-bubble {
+  white-space: pre-wrap; overflow-wrap: anywhere;
+  background: #28354b; border-radius: 10px; padding: 11px 12px;
+  max-height: 155px; overflow-y: auto;
+}
+.robot-dialog-tutor .robot-dialog-choices,
+.robot-dialog-tutor .robot-dialog-footer { display: flex; gap: 7px; margin-top: 9px; }
+.robot-dialog-tutor .robot-dialog-choices button,
+.robot-dialog-tutor .robot-dialog-footer button {
+  flex: 1; border: 1px solid #536584; background: #303c54;
+  color: #f4f6ff; border-radius: 8px; padding: 7px; cursor: pointer;
+}
+.robot-dialog-tutor .robot-dialog-choices [data-no] { background: #4c4480; }
+.robot-dialog-tutor .robot-dialog-form { display: flex; gap: 6px; margin-top: 10px; }
+.robot-dialog-tutor .robot-dialog-form input {
+  flex: 1; min-width: 0; background: #121b2b; color: #fff;
+  border: 1px solid #54627b; border-radius: 8px; padding: 8px;
+  font: inherit;
+}
+.robot-dialog-tutor .robot-dialog-form button {
+  background: #6656c5; border: 0; color: #fff;
+  padding: 7px 12px; border-radius: 8px; cursor: pointer;
+}
+.robot-dialog-tutor [hidden] { display: none !important; }
+
+.inline-copilot-widget.robot-dialog-tutor {
+  margin-right: 48px !important;
+  width: min(305px, calc(100vw - 90px)) !important;
+}
+.robot-code-preview {
+  box-sizing: border-box;
+  padding: 0 12px 12px 0;
+  overflow: hidden;
+  pointer-events: none;
+  color: #b8c6dd;
+  font: 13px/23px Consolas, monospace;
+}
+.robot-code-preview-heading {
+  height: 37px;
+  padding: 7px 12px;
+  box-sizing: border-box;
+  border-left: 3px solid #77b4ff;
+  background: rgba(53,83,125,.35);
+  color: #b8dcff;
+  font: 12px/22px "Segoe UI","Microsoft YaHei",sans-serif;
+  white-space: nowrap;
+}
+.robot-code-preview pre {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 8px 12px;
+  border-left: 3px solid #7282a3;
+  background: rgba(59,78,112,.23);
+  color: #aebcd3;
+  font: inherit;
+  white-space: pre;
+  overflow: visible;
+}
+
+/* ROBOT_PERSISTENT_GHOST_CSS_V2 */
+.monaco-editor .robot-persistent-ghost-inline {
+  color: #9caac1 !important;
+  opacity: .8;
+  pointer-events: none;
+}
+/* ROBOT_ALWAYS_VISIBLE_REFERENCE_CSS_V1 */
+.monaco-editor .robot-persistent-ghost-inline {
+  color: #9facc4 !important;
+  opacity: 0.86;
+  font-style: normal;
+  pointer-events: none;
+}
