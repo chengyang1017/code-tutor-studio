@@ -470,7 +470,7 @@ interface RuntimeMonacoEditor {
 }
 
 const editorController = new EditorController(editorElement, demoFiles);
-installInlineCopilotTutor(editorController);
+installInlineCopilotTutor(editorController, file => openRealProjectFile(file, false, true));
 
 // Hand-on lesson location: file + real source anchor, not an AI-written edit.
 const handsonGuideDecorations = editorController.editor.createDecorationsCollection();

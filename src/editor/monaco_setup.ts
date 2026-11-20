@@ -37,6 +37,7 @@ monaco.editor.defineTheme('ai-tutor-dark', {
     'editorLineNumber.foreground': '#59606c',
     'editorLineNumber.activeForeground': '#c7ccd6',
     'editor.selectionBackground': '#264f78',
+    'editorGhostText.foreground': '#929cab',
   },
 });
 

@@ -8,6 +8,8 @@
     "dev": "concurrently -k -s first \"vite --host 127.0.0.1\" \"wait-on http://127.0.0.1:5173 && electron .\"",
     "build": "vite build",
     "typecheck": "tsc --noEmit",
+    "test": "node --test tests/teaching_completion.test.mjs",
+    "test:editor": "node tests/run_teaching_editor.mjs",
     "preview": "vite preview --host 127.0.0.1",
     "reader:server": "node server/reader-room-server.mjs",
     "package:win": "electron-builder --win"

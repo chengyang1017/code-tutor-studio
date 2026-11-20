@@ -1,14 +1,15 @@
 /* Minimal Electron robot conversation; all source code remains in Monaco. */
-.inline-copilot-widget.robot-dialog-tutor {
+.robot-dialog-tutor {
   box-sizing: border-box;
-  width: min(332px, calc(100vw - 36px)) !important;
-  max-height: min(315px, 65vh) !important;
-  overflow: auto !important;
-  padding: 12px !important;
-  background: #1a2232 !important;
-  border: 1px solid #57637c !important;
-  border-radius: 14px !important;
-  color: #eef2ff !important;
+  margin-right: 48px;
+  width: min(305px, calc(100vw - 90px));
+  max-height: min(315px, 65vh);
+  overflow: auto;
+  padding: 12px;
+  background: #1a2232;
+  border: 1px solid #57637c;
+  border-radius: 14px;
+  color: #eef2ff;
   box-shadow: 0 12px 34px #0008;
   font: 13px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;
   pointer-events: auto;
@@ -45,52 +46,5 @@
   background: #6656c5; border: 0; color: #fff;
   padding: 7px 12px; border-radius: 8px; cursor: pointer;
 }
+.robot-dialog-tutor[hidden],
 .robot-dialog-tutor [hidden] { display: none !important; }
-
-.inline-copilot-widget.robot-dialog-tutor {
-  margin-right: 48px !important;
-  width: min(305px, calc(100vw - 90px)) !important;
-}
-.robot-code-preview {
-  box-sizing: border-box;
-  padding: 0 12px 12px 0;
-  overflow: hidden;
-  pointer-events: none;
-  color: #b8c6dd;
-  font: 13px/23px Consolas, monospace;
-}
-.robot-code-preview-heading {
-  height: 37px;
-  padding: 7px 12px;
-  box-sizing: border-box;
-  border-left: 3px solid #77b4ff;
-  background: rgba(53,83,125,.35);
-  color: #b8dcff;
-  font: 12px/22px "Segoe UI","Microsoft YaHei",sans-serif;
-  white-space: nowrap;
-}
-.robot-code-preview pre {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 8px 12px;
-  border-left: 3px solid #7282a3;
-  background: rgba(59,78,112,.23);
-  color: #aebcd3;
-  font: inherit;
-  white-space: pre;
-  overflow: visible;
-}
-
-/* ROBOT_PERSISTENT_GHOST_CSS_V2 */
-.monaco-editor .robot-persistent-ghost-inline {
-  color: #9caac1 !important;
-  opacity: .8;
-  pointer-events: none;
-}
-/* ROBOT_ALWAYS_VISIBLE_REFERENCE_CSS_V1 */
-.monaco-editor .robot-persistent-ghost-inline {
-  color: #9facc4 !important;
-  opacity: 0.86;
-  font-style: normal;
-  pointer-events: none;
-}

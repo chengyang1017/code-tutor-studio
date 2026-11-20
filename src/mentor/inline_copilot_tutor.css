@@ -1,30 +1,19 @@
-/* Compact Copilot-style hint inside Monaco. No teaching side panel. */
-.inline-copilot-launch{border:1px solid #7166bd!important;background:#272346!important;color:#ece8ff!important}
-.inline-copilot-widget{box-sizing:border-box;width:min(380px,calc(100vw - 30px));max-height:min(320px,55vh);overflow:auto;padding:12px 14px;border-radius:12px;border:1px solid #65718d;background:#171e2c;color:#f0f3ff;box-shadow:0 12px 32px #0008;font:14px/1.55 "Segoe UI","Microsoft YaHei",sans-serif;pointer-events:auto}
-.inline-copilot-widget.inline-copilot-hidden{display:none!important}
-.inline-copilot-top{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-bottom:9px}
-.inline-copilot-top strong{font-size:14px}
-.inline-copilot-widget button{cursor:pointer;border:1px solid #485470;background:#29334b;color:#eff3ff;border-radius:6px;padding:5px 10px;font:inherit}
-.inline-copilot-form{display:flex;gap:6px}
-.inline-copilot-form input{flex:1;min-width:0;border:1px solid #475677;border-radius:6px;background:#242d40;color:white;font:inherit;padding:7px 8px}
-.inline-copilot-form button{background:#5145af}
-.inline-copilot-heading{font-weight:700;margin-top:10px}
-.inline-copilot-task{white-space:pre-wrap;margin:6px 0;max-height:85px;overflow:auto;font-size:13px}
-.inline-copilot-location{font-size:12px;color:#9dc9ff;overflow-wrap:anywhere}
-.inline-copilot-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
-.inline-copilot-actions button{flex:1;min-width:60px}
-.inline-copilot-help{border-left:3px solid #819bea;padding:7px 9px;margin-top:9px;background:#233047;white-space:pre-wrap;font-size:13px}
-.inline-copilot-status{color:#b4c1d6;font-size:12px;margin-top:7px;white-space:pre-wrap}
-.inline-copilot-widget [hidden]{display:none!important}
+.inline-copilot-launch {
+  border: 1px solid #7166bd !important;
+  background: #272346 !important;
+  color: #ece8ff !important;
+}
 
-/* Inline tutor: visible code and draggable header */
-.inline-copilot-widget .inline-copilot-top { cursor: move; user-select: none; touch-action: none; }
-.inline-copilot-widget .inline-copilot-top button { cursor: pointer; touch-action: auto; }
-.inline-copilot-widget .inline-copilot-help:not([hidden]) { display:block!important; max-height: min(310px, 45vh); overflow: auto; white-space: normal; }
-.inline-copilot-answer-label { font-weight: 650; font-size: 13px; margin-bottom: 8px; color: #c5dcff; }
-.inline-copilot-answer-code { font: 13px/1.55 Consolas,monospace; white-space: pre; overflow: auto; padding: 12px; margin: 0; background: #0d1421; border: 1px solid #384761; border-radius: 7px; color: #e7efff; user-select:text; }
+.monaco-editor .teaching-delete-text {
+  color: #ffb4ba !important;
+  background-color: #6c2735;
+  text-decoration: line-through 2px #ff747f;
+}
 
-/* INLINE_PLACEMENT_V2: concise verified placement above reference code */
-.inline-copilot-widget .inline-copilot-answer-where{font-weight:700;color:#92d9ff;line-height:1.5;white-space:normal;margin-bottom:8px;padding:9px 10px;border-radius:7px;background:#12354a;overflow-wrap:anywhere;}
-.inline-copilot-widget .inline-copilot-answer-note{font-size:13px;color:#d7e5f7;white-space:pre-wrap;margin-bottom:9px;}
-.inline-copilot-widget .inline-copilot-answer-code{white-space:pre;overflow:auto;max-width:100%;} 
+.monaco-editor .teaching-delete-line {
+  background-color: rgb(230 72 90 / 18%);
+}
+
+.monaco-editor .teaching-delete-line-number {
+  color: #ff9099 !important;
+}

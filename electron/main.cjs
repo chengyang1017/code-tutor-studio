@@ -2596,35 +2596,62 @@ app.on('window-all-closed', () => {
   }
 });
 
-// HANDSON_TUTOR_IPC_V1
 ipcMain.handle('mentor:handson-step', async (_event, raw) => {
-  if (!currentProjectRoot) throw new Error('Please open a local project first.');
+  const projectRoot = currentProjectRoot;
+  if (!projectRoot) throw new Error('Please open a local project first.');
   if (!runtimeOpenAiKey) throw new Error('Please configure the OpenAI API Key first.');
   const input = raw && typeof raw === 'object' ? raw : {};
+  if (input.projectRoot && input.projectRoot !== projectRoot) throw new Error('教学项目已切换，请重试。');
   const goal = String(input.goal || '').trim().slice(0, 2000);
   const history = Array.isArray(input.history) ? input.history.slice(-12) : [];
   const previous = input.previous && typeof input.previous === 'object' ? input.previous : null;
   const mode = input.mode === 'verify' ? 'verify' : input.mode === 'reference' ? 'reference' : 'next';
   if (!goal) throw new Error('Please describe the feature you want to learn.');
   const files = currentProjectFiles.filter(name => !name.startsWith('.code-tutor/')).slice(0, 140);
-  const target = previous && typeof previous.file === 'string' ? previous.file : '';
+  const target = typeof previous?.file === 'string' && currentProjectFiles.includes(previous.file) ? previous.file : '';
+  const buffer = mode !== 'next' && target && input.buffer?.file === target &&
+    typeof input.buffer.content === 'string' ? input.buffer.content : null;
+  if (mode !== 'next' && input.buffer && buffer === null) throw new Error('教学目标文件已变更，请重新打开后再试。');
+  const source = buffer === null ? null : buffer.replace(/\r\n?/g, '\n');
+  const sourceLines = source?.split('\n') ?? [];
+  const retryReasons = ['original-not-found', 'ambiguous', 'unsupported-range', 'invalid-ai-data'];
+  const relocation = mode === 'reference' && source !== null && retryReasons.includes(input.relocation?.kind)
+    ? { reason: input.relocation.kind, candidates: (Array.isArray(input.relocation.candidates) ? input.relocation.candidates : [])
+      .slice(0, 8).filter(candidate => Number.isSafeInteger(candidate?.line) && candidate.line > 0 && candidate.line <= sourceLines.length)
+      .map(candidate => {
+        const startLine = Math.max(1, candidate.line - 4);
+        const column = Number.isSafeInteger(candidate.column) && candidate.column > 0 ? candidate.column : 1;
+        return { line: candidate.line, column, startLine,
+          content: sourceLines.slice(startLine - 1, candidate.line + 4).join('\n').slice(0, 1800) };
+      }) } : null;
   const preview = [];
   const interest = files.filter(name => /(^package\.json$|^src\/(App\.|main\.|auth\.|pages\/)|^lib\/main\.dart$)/i.test(name)).slice(0, 7);
   if (target && !interest.includes(target)) interest.push(target);
   for (const file of interest) {
     try {
-      const absolute = resolveInsideProject(currentProjectRoot, file);
-      const body = await fs.readFile(absolute, 'utf8');
-      preview.push({ file, content: body.slice(0, 7000) });
+      if (file === target && source !== null) {
+        const anchor = typeof previous.anchor === 'string' ? previous.anchor.replace(/\r\n?/g, '\n') : '';
+        const anchorOffset = anchor ? source.indexOf(anchor) : -1;
+        const focusLine = relocation?.candidates[0]?.line ?? previous.line;
+        const focusOffset = anchorOffset >= 0 && source.indexOf(anchor, anchorOffset + 1) < 0 ? anchorOffset :
+          Number.isSafeInteger(focusLine) && focusLine > 1 && focusLine <= sourceLines.length
+            ? sourceLines.slice(0, focusLine - 1).join('\n').length + 1 : 0;
+        const start = source.length <= 24000 || focusOffset < 6000 ? 0 : source.lastIndexOf('\n', focusOffset - 6000) + 1;
+        const content = source.slice(start, start + 24000);
+        preview.push({ file, content, startLine: source.slice(0, start).split('\n').length, partial: content.length < source.length });
+      } else {
+        const absolute = resolveInsideProject(projectRoot, file);
+        const body = await fs.readFile(absolute, 'utf8');
+        preview.push({ file, content: body.slice(0, 7000), partial: body.length > 7000 });
+      }
     } catch { /* The requested file may not exist yet. */ }
   }
-  // INLINE_PLACEMENT_V2: request exact placement so the student can find it.
-  const placementContract = `When mode=reference, output ONE JSON object: {"example":"focused code snippet", "placement":{"file":"project-relative path", "action":"before|after|replace|new_file|unknown", "anchor":"exact existing source text close to the edit (must be copied verbatim)", "note":"one short Chinese sentence explaining where to write"}}. The anchor MUST exist verbatim in the real target file. For replace, anchor MUST be the exact old code being replaced; for before/after, anchor is the nearby exact existing line. If you cannot verify a unique location, set action=unknown and anchor empty; do not guess line numbers. Never modify files.`;
+  const inlineReference = `Return one JSON object with shape {"example":"resulting code for the selected range", "placement":{"file":"current step file", "action":"replace|delete|empty_file|unknown", "original":"exact text in the range", "anchor":"another exact nearby source snippet", "before":"exact text immediately before the range", "after":"exact text immediately after it", "scope":"enclosing function or Class.method name", "range":{"startLine":1,"startColumn":1,"endLine":1,"endColumn":2}}}. Use the current target buffer in fileContents, which may contain unsaved edits; startLine in fileContents is the absolute line of its first line. Range coordinates are 1-based UTF-16 positions with an exclusive end. Copy original verbatim, keeping indentation. Prefer the smallest verified range covering all edits required by this step. Use replace when changing a range, and preserve lines between changes so the editor can offer edits one at a time. For insertion, include at least an unchanged adjacent line in original. Use delete with an empty example only for an exact existing range; include nearby context to distinguish repeated lines. Omit anchor, before, after, scope or range when unavailable. Avoid copying source outside the selected range into example. For a completed step, use replace with the exact current target text in both original and example. Use empty_file with original empty and no range only for a completely empty file. If the available source cannot establish a unique range, use unknown and example empty. Return code only in example, with no prose, placeholder comments or Markdown. Never modify files.${relocation ? ' The first attempt could not be verified. Re-read the latest source and candidate excerpts in relocation. Recalculate the original, scope, and coordinates from those excerpts; choose only a range that can be independently verified.' : ''}`;
   const instructions = mode === 'reference'
-    ? "Return JSON containing one non-empty string field named example. Give a focused, syntactically valid code example for the student's CURRENT step and CURRENT target file, using the real file content. Output code only in example. Do not modify any files. Do not invent unavailable APIs. Do not include markdown fences."
+    ? buffer !== null ? inlineReference : "Return JSON containing one non-empty string field named example. Give a focused, syntactically valid code example for the student's current step and target file using the real file content. Output code only in example. Do not modify any files."
     : mode === 'verify'
     ? `Check the student's current work for the current step. Be conservative: return passed=true only if there is convincing code evidence that the task is done. If incomplete, give a specific, friendly hint. Do NOT modify files. Return JSON with keys passed (boolean), feedback (string).`
-    : `You are a patient, hands-on Chinese coding tutor inside an IDE. The student MUST type all code. Never modify files or claim you did. Plan ONE small step at a time based on the real project and user's goal, not a hardcoded Todo course. Provide the exact project-relative file to open. In the instruction field, describe WHAT functionality to implement and the observable completion criteria, using simple Chinese and NO source code, syntax snippets, or copy-paste instructions. The explanation field is a brief conceptual hint, without giving full code. The example field contains a small focused code reference only for when the student explicitly requests it. The UI hides explanation and example initially. Prefer editing existing files, only create a file when necessary. Avoid repeating steps in history. If a file does not exist yet, explicitly tell them to create it manually. Return JSON keys file (string), title (string), instruction (string), example (string), explanation (string), anchor (string), line (number). The anchor should be an EXACT short snippet copied verbatim from the existing file contents, near the location the student must edit. If no such snippet is available, use an empty anchor and line 1. The instruction should start with a short precise action (e.g. 'find the login() function and add a validation branch') and list 1-2 observable success criteria. Do not reveal code inside instruction. Use no markdown outside JSON.`;
+    : `You are a patient, hands-on Chinese coding tutor inside an IDE. The student MUST type all code. Never modify files or claim you did. Plan ONE small step at a time based on the real project and user's goal, not a hardcoded Todo course. Provide the exact project-relative file to open. In the instruction field, describe WHAT functionality to implement and the observable completion criteria, using simple Chinese and NO source code, syntax snippets, or copy-paste instructions. The explanation field is a brief conceptual hint, without giving full code. The example field contains a small focused code reference only for when the student explicitly requests it. The UI hides explanation and example initially. Prefer editing existing files, only create a file when necessary. Avoid repeating steps in history. If a file does not exist yet, explicitly tell them to create it manually. Return JSON keys file (string), title (string), instruction (string), example (string), explanation (string), anchor (string), line (number), and scope (string, only if the containing function or Class.method name can be confirmed). The anchor should be an EXACT short snippet copied verbatim from the existing file contents, near the location the student must edit. If no such snippet is available, use an empty anchor and line 1. The instruction should start with a short precise action (e.g. 'find the login() function and add a validation branch') and list 1-2 observable success criteria. Do not reveal code inside instruction. Use no markdown outside JSON.`;
   const controller = new AbortController();
   const timeout = setTimeout(() => controller.abort(), 60000);
   try {
@@ -2635,44 +2662,44 @@ ipcMain.handle('mentor:handson-step', async (_event, raw) => {
         model: OPENAI_MODEL,
         input: [
           { role: 'system', content: instructions },
-          ...(mode === 'reference' ? [{role:'system',content:placementContract}] : []),
-          { role: 'user', content: JSON.stringify({ mode, goal, history, previous, projectFiles: files, fileContents: preview }) },
+          { role: 'user', content: JSON.stringify({ mode, goal, history, previous, projectFiles: files, fileContents: preview,
+            ...(relocation ? { relocation } : {}) }) },
         ],
       }),
       signal: controller.signal,
     });
     const result = await response.json().catch(() => ({}));
+    if (projectRoot !== currentProjectRoot) throw new Error('教学项目已切换，请重试。');
     if (!response.ok) throw new Error(result?.error?.message || `AI request failed (${response.status})`);
     const answer = extractOpenAiOutputText(result).trim().replace(/^```(?:json)?\s*/i, '').replace(/\s*```$/, '');
-    const decoded = JSON.parse(answer);
+    let decoded;
+    try { decoded = JSON.parse(answer); }
+    catch (error) {
+      if (mode === 'reference' && source !== null) return { error: 'invalid-json' };
+      throw error;
+    }
+    if (mode === 'reference' && source !== null) {
+      return { example: decoded?.example, placement: decoded?.placement };
+    }
     if (!decoded || typeof decoded !== 'object') throw new Error('AI returned an invalid response.');
     if (mode === 'reference') {
       const place = decoded.placement && typeof decoded.placement === 'object' ? decoded.placement : {};
-      const file = String(place.file || target || '').trim().replace(/\\/g,'/');
-      const action = String(place.action || 'unknown');
-      const anchor = String(place.anchor || '').trim();
-      const note = String(place.note || '').slice(0, 400);
-      let line = 0;
-      let verified = false;
-      if (file && file === target && ['before','after','replace'].includes(action) && anchor && !file.startsWith('/') && !file.includes('..')) {
-        try {
-          const content = await fs.readFile(resolveInsideProject(currentProjectRoot, file), 'utf8');
-          const first = content.indexOf(anchor);
-          if (first >= 0 && content.indexOf(anchor, first + anchor.length) === -1) {
-            verified = true;
-            line = content.slice(0, first).split(/\r?\n/).length;
-          }
-        } catch { /* Cannot verify location. */ }
-      }
+      const file = typeof place.file === 'string' ? place.file.trim().replace(/\\/g, '/') : '';
+      const validExample = typeof decoded.example === 'string' && decoded.example.length <= 12000;
+      const example = validExample ? decoded.example : '';
+      const anchor = typeof place.anchor === 'string' && place.anchor.length <= 12000 ? place.anchor : '';
+      const validAction = place.action === 'delete' ? example === '' && Boolean(anchor) :
+        Boolean(example) && (place.action === 'replace' || place.action === 'empty_file');
+      const action = file === target && validExample && validAction ? place.action : 'unknown';
       return {
-        example: String(decoded.example || '').trim().slice(0, 12000),
-        placement: {file: file || target, action, anchor: verified ? anchor : '', note, line, verified},
+        example,
+        placement: { file, action, anchor },
       };
     }
     if (mode === 'verify') return { passed: decoded.passed === true, feedback: String(decoded.feedback || '').slice(0, 1800) };
     const file = String(decoded.file || '').trim().replace(/\\/g, '/');
     if (!file || file.startsWith('/') || file.includes('..') || /^[a-zA-Z]:/.test(file)) throw new Error('AI returned an unsafe file path.');
-    return { file, title: String(decoded.title || '').slice(0, 140), instruction: String(decoded.instruction || '').slice(0, 2400), example: String(decoded.example || '').slice(0, 12000), explanation: String(decoded.explanation || '').slice(0, 2500), anchor: String(decoded.anchor || '').slice(0, 240), line: Math.max(1, Math.min(50000, Number(decoded.line) || 1)) };
+    return { file, title: String(decoded.title || '').slice(0, 140), instruction: String(decoded.instruction || '').slice(0, 2400), example: String(decoded.example || '').slice(0, 12000), explanation: String(decoded.explanation || '').slice(0, 2500), anchor: String(decoded.anchor || '').slice(0, 240), line: Math.max(1, Math.min(50000, Math.floor(Number(decoded.line) || 1))), ...(typeof decoded.scope === 'string' && decoded.scope.trim() ? { scope: decoded.scope.trim().slice(0, 180) } : {}) };
   } finally { clearTimeout(timeout); }
 });
 
