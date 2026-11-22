@@ -1,0 +1,7 @@
+/.expo/
+/android/
+/src/editor/generated.ts
+/modules/*/android/build/
+/modules/*/android/.gradle/
+/modules/*/android/.cxx/
+

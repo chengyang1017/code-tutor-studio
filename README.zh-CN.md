@@ -10,6 +10,58 @@ Code Tutor Studio 并不是传统的“右侧 AI 聊天框”式工具。它会�
 
 ---
 
+## React Native Android IDE
+
+Android 原生 IDE 位于 `mobile/`，使用 Expo SDK 54、React Native、TypeScript 和 Android 原生模块。Android 11 或更新版本可安装，主要面向横屏平板。桌面 Electron 和根目录 `android/` 下的 Capacitor 工程均保留。三个入口及各阶段文件详见 [Android 迁移与验证](mobile/ANDROID-VERIFICATION.md)。
+
+| 能力 | React Native Android |
+| --- | --- |
+| 项目与编辑 | SAF 选择目录并恢复授权。支持新建项目、文件和目录，删除前确认。多标签、未保存标记、撤销重做、Ctrl+S、可选自动保存，以及检测磁盘冲突后的手动重读。512 KiB 文本上限，支持 UTF-8 和带 BOM 的 UTF-16，混合换行以只读打开，二进制文件保留在目录中。 |
+| 平板与手机 | 大屏左侧可折叠和拖宽的文件树、中间代码、右侧教学、底部终端。窄屏切换文件、代码和教学。系统处理横竖屏与软键盘避让。 |
+| 语言与教学 | CodeMirror 支持 TS、JS、JSX、TSX、JSON、HTML、CSS、Python、Dart 高亮。TS/JS 有文件级语法诊断。教程可离线验证源码，AI 指导读取当前文件和选区，支持跨文件定位、暂停、恢复、验证、差异确认、语音和进度保存。 |
+| 凭据与权限 | Android Keystore 加密保存 API Key。发送源码前确认 OpenAI 上下文。敏感路径从 AI 上下文排除，敏感文件保存需要确认。文件和终端权限由原生模块持有，编辑器 WebView 只接收编辑消息。 |
+| 终端 | Android 系统 Toybox 真进程，支持 `pwd`、`ls`、`date`、`id`、`uname`、`df` 和 `sleep 1` 至 `sleep 30`，另有清屏、停止、复制。当前工作目录为应用私有目录，SAF 项目目录没有可供普通进程直接使用的绝对路径。 |
+| 运行与预览 | 本地浏览器运行无构建依赖的静态页面或电脑／自管主机已构建的 React `dist/`。预览页面可显示脚本运行错误，内置服务仅监听设备回环地址并限制资源来源。可打开自管主机的 HTTPS 预览。 |
+
+目前没有内置 Node.js、npm、Python 或 Dart 运行环境、交互式 shell / PTY、远程进程管理、Dart LSP 或 Android 设备内的通用 APK 编译器。React Native 项目需要 Metro 和对应的开发构建，独立 APK 需要 Android Gradle 工具链。终端会说明无法执行构建命令的原因。React Web 源码修改后，可在开发机运行 `npm ci` 与 `npm run build`，把最新的 `dist/` 同步进所授权的项目目录，再重新打开本地预览。
+
+### Windows 生成 APK 并安装到平板
+
+安装 Node.js 22 或 24 LTS、Android Studio 和 JDK 17 或 21。用 Android Studio 的 SDK Manager 安装 Android SDK Platform 36、Build-Tools 36.0.0、Platform-Tools、NDK 27.1.12297006 和 CMake 3.22.1。平板开启开发者选项和 USB 调试，连接后接受设备上的授权提示。
+
+在仓库根目录运行以下 PowerShell 命令。新工程的依赖及锁文件独立于桌面工程。
+
+```powershell
+$env:JAVA_HOME = 'C:\Program Files\Android\Android Studio\jbr'
+$env:ANDROID_HOME = "$env:LOCALAPPDATA\Android\Sdk"
+$env:Path += ";$env:ANDROID_HOME\platform-tools"
+cd mobile
+npm.cmd ci
+npm.cmd run apk:debug
+adb devices
+adb install -r .\android\app\build\outputs\apk\debug\app-debug.apk
+```
+
+产物位于 `mobile/android/app/build/outputs/apk/debug/app-debug.apk`，可复制到平板直接安装。手动安装时，按 Android 提示授权所用文件管理器安装应用。此 APK 自带应用 JavaScript，无需在电脑端启动 Metro，采用调试证书签名。包名为 `com.chengyang.codetutor.mobile`，可与旧 Capacitor 版本并存。
+
+如果要调试 React Native 源码，请从 `mobile/` 运行 `npm.cmd run android`。若已安装开发版，可用 `adb reverse tcp:8081 tcp:8081` 和 `npm.cmd start` 启动 Metro，然后从设备启动应用。开发版由本仓库编译，包含 SAF 等原生模块。
+
+### 回归检查
+
+```powershell
+npm.cmd ci
+npm.cmd run typecheck
+npm.cmd test
+npm.cmd run build
+npm.cmd run test:editor
+npm.cmd ci --prefix mobile
+npm.cmd run typecheck --prefix mobile
+npm.cmd test --prefix mobile
+```
+
+以下桌面功能说明也适用于原有 Capacitor 路径中已实现的部分。React Native 能力以本节为准。
+
+---
 ## 截图
 
 > 这里暂时保留截图占位。准备好图片后，将文件放到 `docs/screenshots/` 即可。

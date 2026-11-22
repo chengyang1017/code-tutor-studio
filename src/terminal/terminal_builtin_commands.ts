@@ -1,12 +1,4 @@
-const CLEAR_COMMANDS = new Set([
-  'cls',
-  'clear',
-  'clear-host',
-]);
-
-function normalizedCommand(value: string): string {
-  return value.trim().toLowerCase();
-}
+import { isClearCommand } from '../../shared/core/terminal';
 
 function clearTerminalOutput(): void {
   const output = document.querySelector<HTMLElement>(
@@ -32,8 +24,8 @@ function handleBuiltInSubmit(event: SubmitEvent): void {
     return;
   }
 
-  const command = normalizedCommand(input.value);
-  if (!CLEAR_COMMANDS.has(command)) {
+  const command = input.value;
+  if (!isClearCommand(command)) {
     return;
   }
 

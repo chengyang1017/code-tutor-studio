@@ -1,0 +1,16 @@
+{
+  "expo": {
+    "name": "Code Tutor Studio",
+    "slug": "code-tutor-studio-mobile",
+    "version": "0.1.0",
+    "orientation": "default",
+    "platforms": ["android"],
+    "android": {
+      "package": "com.chengyang.codetutor.mobile",
+      "softwareKeyboardLayoutMode": "resize",
+      "allowBackup": false,
+      "blockedPermissions": ["android.permission.READ_EXTERNAL_STORAGE", "android.permission.WRITE_EXTERNAL_STORAGE", "android.permission.SYSTEM_ALERT_WINDOW"]
+    },
+    "plugins": ["expo-secure-store", "./plugins/withStandaloneDebug.cjs"]
+  }
+}
