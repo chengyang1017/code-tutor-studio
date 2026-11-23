@@ -2,6 +2,8 @@ import { useEffect, useRef, useState } from 'react';
 import { Linking, Modal, ScrollView, StatusBar, Switch, Text, TextInput, useWindowDimensions, View } from 'react-native';
 import { SafeAreaProvider, SafeAreaView } from 'react-native-safe-area-context';
 import { Editor } from './editor/Editor';
+import { reactRuntime } from './editor/generated';
+import { buildReactSnapshot } from './platform/reactProject';
 import { useProject } from './model/useProject';
 import { useTeaching } from './model/useTeaching';
 import { confirm, errorMessage } from './model/feedback';
@@ -42,6 +44,10 @@ function Studio() {
   const [editorKey, setEditorKey] = useState(0);
   const [previewing, setPreviewing] = useState(false);
   const [remote, setRemote] = useState('');
+  const [deviceServer, setDeviceServer] = useState('http://127.0.0.1:5173');
+  const [starter, setStarter] = useState(false);
+  const [wrapLines, setWrapLines] = useState(false);
+  const [buildingPreview, setBuildingPreview] = useState(false);
   const [apiKey, setApiKey] = useState('');
   const [keySaved, setKeySaved] = useState(false);
   const tutor = useTeaching(report);
@@ -52,10 +58,15 @@ function Studio() {
   const voiceGeneration = useRef(0);
   const visibleEditor = wide || screen === 'editor';
 
+  useEffect(() => {
+    if (model.ready && active) model.editor.current?.send({ type: 'wrap', id: active.id, enabled: wrapLines });
+  }, [model.ready, active?.id, wrapLines]);
+
   function run(task: () => unknown) {
     void Promise.resolve().then(task).catch(error => report(errorMessage(error)));
   }
   function showDialog(next: Dialog) {
+    if (next.kind === 'project') setStarter(false);
     setName(next.kind === 'rename' ? next.path.split('/').at(-1) ?? '' : '');
     setDialog(next);
   }
@@ -88,7 +99,7 @@ function Studio() {
   }, [voiceEnabled, tutor.progress.session.paused, model.project?.id]);
 
   useEffect(() => {
-    if (!model.ready || !active) return;
+    if (!model.ready || !active || !/\.[cm]?[jt]sx?$/i.test(active.path)) return;
     const timer = setTimeout(() => {
       model.editor.current?.send({ type: 'diagnostics', id: active.id, diagnostics: semantics.diagnostics(active.path, active.text) });
     }, 400);
@@ -131,28 +142,38 @@ function Studio() {
     const value = name.trim();
     const request = dialog;
     closeDialog();
-    if (request.kind === 'project') await model.choose(value);
+    if (request.kind === 'project') await model.choose(value, starter);
     else if (request.kind === 'rename') { await model.mutate(request.path, value); select(undefined); }
     else if (request.kind === 'folder' || request.kind === 'file') await model.create(request.path, value, request.kind === 'folder');
   }
 
-  async function openLocal() {
+  async function openLocal(source: 'react' | 'built') {
     const project = model.project;
-    if (!project || model.busy) return;
-    if (!await confirm('在设备浏览器预览', '浏览器会执行已保存项目中的脚本。请确认你信任这份代码。', '打开预览')) return;
-    const url = await workspace.preview(project.id, true);
+    if (!project || model.busy || buildingPreview) return;
+    setBuildingPreview(true);
+    report('');
     try {
-      await Linking.openURL(url);
-      setPreviewing(true);
-      closeDialog();
-    } catch (error) {
-      await workspace.stopPreview();
-      throw error;
+      if (!await confirm('在设备浏览器预览', '浏览器会执行已保存项目中的脚本。请确认你信任这份代码。', '打开预览')) return;
+      const url = source === 'react'
+        ? await workspace.reactPreview(project.id, await buildReactSnapshot(workspace, project, reactRuntime), true)
+        : await workspace.preview(project.id, true);
+      try {
+        await Linking.openURL(url);
+        setPreviewing(true);
+        closeDialog();
+      } catch (error) {
+        await workspace.stopPreview();
+        setPreviewing(false);
+        throw error;
+      }
+    } finally {
+      setBuildingPreview(false);
     }
   }
 
-  async function openRemote() {
-    const url = await workspace.validateRemotePreview(remote.trim());
+  async function openExternal(kind: 'device' | 'remote') {
+    const url = kind === 'device' ? await workspace.validateDevicePreview(deviceServer.trim())
+      : await workspace.validateRemotePreview(remote.trim());
     const origin = url.split(/[/?#]/).slice(0, 3).join('/');
     if (!await confirm('打开外部开发预览', '在系统浏览器打开 ' + origin + '？', '打开')) return;
     await Linking.openURL(url);
@@ -209,6 +230,7 @@ function Studio() {
           <Text numberOfLines={1} style={[styles.muted, { flex: 1 }]}>{active.path}{active.readOnly ? ' · 只读' : ''}</Text>
           <Button disabled={!model.ready || active.readOnly} onPress={() => model.editor.current?.send({ type: 'undo', id: active.id })}>撤销</Button>
           <Button disabled={!model.ready || active.readOnly} onPress={() => model.editor.current?.send({ type: 'redo', id: active.id })}>重做</Button>
+          <Button disabled={!model.ready} selected={wrapLines} onPress={() => setWrapLines(value => !value)}>换行</Button>
           <Button disabled={model.busy} onPress={() => run(async () => {
             if (await confirm('重读磁盘版本', '此操作会丢弃这个标签的未保存编辑。', '重读', true)) await model.open(active.path, true);
           })}>重读</Button>
@@ -261,15 +283,26 @@ function Studio() {
               </View>
             </> : dialog?.kind === 'run' ? <>
               <Text style={styles.heading}>运行与预览</Text>
-              <Text style={styles.text}>在设备浏览器运行静态项目或已构建的 React dist/。Node.js 构建需要电脑或独立开发环境。</Text>
-              <Button disabled={!model.project || model.busy} onPress={() => run(openLocal)} selected>打开本地浏览器预览</Button>
-              <Text style={styles.muted}>可以在自管开发环境运行项目，再打开其 HTTPS 预览。React Native 项目使用 Metro 和对应的开发构建，独立 APK 由 Android 工具链打包。</Text>
+              <Text style={styles.text}>本机 React 模板会编译已保存的 TS/TSX 并启动回环预览。保存修改后重新运行，浏览器会显示新版本。</Text>
+              <Button disabled={!model.project || model.busy || buildingPreview} onPress={() => run(() => openLocal('react'))} selected>
+                {buildingPreview ? '正在准备预览…' : '从源码运行 React 模板'}
+              </Button>
+              <Button disabled={!model.project || model.busy || buildingPreview} onPress={() => run(() => openLocal('built'))}>预览静态网站或 dist/</Button>
+              <Text style={styles.muted}>在 Termux 等独立环境手动安装依赖并启动 Vite 后，可打开设备回环地址。构建日志位于该环境的终端。</Text>
+              <TextInput accessibilityLabel="设备开发服务器地址" value={deviceServer} onChangeText={setDeviceServer} style={styles.input}
+                autoCapitalize="none" autoCorrect={false} />
+              <Button disabled={!deviceServer.trim()} onPress={() => run(() => openExternal('device'))}>打开设备开发服务器</Button>
+              <Text style={styles.muted}>远程构建由自管主机运行。启动后可打开 HTTPS 地址。</Text>
               <TextInput accessibilityLabel="HTTPS 开发预览地址" value={remote} onChangeText={setRemote} style={styles.input}
                 autoCapitalize="none" autoCorrect={false} placeholder="HTTPS 开发预览地址" placeholderTextColor={colors.muted} />
-              <Button disabled={!remote.trim()} onPress={() => run(openRemote)}>打开 HTTPS 预览</Button>
+              <Button disabled={!remote.trim()} onPress={() => run(() => openExternal('remote'))}>打开远程 HTTPS 预览</Button>
             </> : dialog && <>
               <Text style={styles.heading}>{dialog.kind === 'project' ? '新建项目' : dialog.kind === 'rename' ? '重命名' : dialog.kind === 'folder' ? '新建目录' : '新建文件'}</Text>
               {dialog.kind === 'project' && <Text style={styles.muted}>输入名称后，在 Android 目录选择器中选择项目的父目录。</Text>}
+              {dialog.kind === 'project' && <View style={styles.wrap}>
+                <Button selected={!starter} onPress={() => setStarter(false)}>空白项目</Button>
+                <Button selected={starter} onPress={() => setStarter(true)}>React + TypeScript</Button>
+              </View>}
               <TextInput accessibilityLabel="名称" value={name} onChangeText={setName} maxLength={255}
                 autoCapitalize="none" autoCorrect={false} style={styles.input} onSubmitEditing={() => run(submitName)} />
               <Button disabled={!name.trim()} onPress={() => run(submitName)} selected>继续</Button>

@@ -4,7 +4,7 @@ import { locateTeachingChange } from '../../../shared/teaching/teaching_location
 import { planTeachingEdits, teachingProgress } from '../../../shared/teaching/teaching_completion';
 import { isSafeTeachingCode } from '../../../shared/teaching/teaching_code_validation';
 import {
-  isSensitivePath, isTeachingStep, isTeachingVerification, teachingDiagnosticText,
+  isProjectPath, isSensitivePath, isTeachingStep, isTeachingVerification, teachingDiagnosticText,
 } from '../../../shared/teaching/session';
 import type { TeachingMode, TeachingRequest, TeachingSession } from '../../../shared/teaching/session';
 import { requestTeaching } from '../platform/services';
@@ -18,6 +18,23 @@ type Progress = { session: TeachingSession; course: number; coursePassed: boolea
 type Reference = { path: string; data: unknown; example: string; step: NonNullable<TeachingSession['step']> };
 const initial: Progress = { session: { goal: '', completed: 0, paused: false }, course: 0, coursePassed: false, aiPassed: false };
 const requestLimit = 30000;
+
+async function listTeachingPaths(project: Project, active?: string) {
+  const paths = new Set<string>();
+  if (active && isProjectPath(active) && !isSensitivePath(active)) paths.add(active);
+  const directories = [''];
+  for (let i = 0; i < directories.length && i < 24 && paths.size < 250; i++) {
+    for (const file of await workspace.list(project.id, directories[i])) {
+      if (!isProjectPath(file.path) || isSensitivePath(file.path)) continue;
+      if (file.directory) {
+        if (directories.length < 24 && file.path !== 'dist' && !file.path.startsWith('dist/')) directories.push(file.path);
+      } else if (paths.size < 250) {
+        paths.add(file.path);
+      }
+    }
+  }
+  return [...paths];
+}
 
 export function useTeaching(report: (message: string) => void) {
   const [progress, setProgress] = useState(initial);
@@ -125,10 +142,8 @@ export function useTeaching(report: (message: string) => void) {
     if (mode !== 'next' && buffer && buffer.text.length > requestLimit) {
       throw new Error('AI 参考和验证需要完整目标文件，目前支持最多 30,000 个字符');
     }
-    const paths = [...new Set(Object.values(files.dirs).flat().filter(entry => !entry.directory).map(entry => entry.path))]
-      .filter(path => !isSensitivePath(path));
-    if (target && buffer && !paths.includes(target)) paths.unshift(target);
-    const safePaths = paths.slice(0, 250);
+    const safePaths = mode === 'next' ? await listTeachingPaths(project, buffer ? target : undefined) : target ? [target] : [];
+    if (current.current?.id !== project.id || state.current !== started || pending.current) return;
     const source = target && buffer ? {
       file: target,
       text: buffer.text.slice(0, requestLimit),
@@ -136,7 +151,7 @@ export function useTeaching(report: (message: string) => void) {
     } : undefined;
     const data: TeachingRequest = { mode, session, files: safePaths, source };
     if (!await confirm('发送教学上下文给 OpenAI',
-      '发送教学目标、当前步骤和已展开目录中的文件名。' +
+      '发送教学目标、当前步骤和本次候选文件名（最多 250 个）。' +
       (source ? ' 同时发送 ' + source.file + ' 的前 30,000 个字符及可用的选区范围。请先确认源码中没有秘密。' : ''),
       '发送')) return;
     if (current.current?.id !== project.id || state.current !== started || pending.current) return;
@@ -150,7 +165,7 @@ export function useTeaching(report: (message: string) => void) {
       if (abort.signal.aborted || current.current?.id !== project.id || state.current !== started) return;
       if (mode === 'next') {
         if (!isTeachingStep(result) || !safePaths.includes(result.file) || isSensitivePath(result.file)) {
-          throw new Error('AI 未返回已授权文件中的可用教学步骤。请先展开目标目录或打开文件。');
+          throw new Error('AI 未返回候选文件中的可用教学步骤。可以先打开目标文件，再请求下一步。');
         }
         const step = {
           file: result.file, title: result.title, instruction: result.instruction,

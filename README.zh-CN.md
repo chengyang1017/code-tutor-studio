@@ -18,12 +18,19 @@ Android 原生 IDE 位于 `mobile/`，使用 Expo SDK 54、React Native、TypeSc
 | --- | --- |
 | 项目与编辑 | SAF 选择目录并恢复授权。支持新建项目、文件和目录，删除前确认。多标签、未保存标记、撤销重做、Ctrl+S、可选自动保存，以及检测磁盘冲突后的手动重读。512 KiB 文本上限，支持 UTF-8 和带 BOM 的 UTF-16，混合换行以只读打开，二进制文件保留在目录中。 |
 | 平板与手机 | 大屏左侧可折叠和拖宽的文件树、中间代码、右侧教学、底部终端。窄屏切换文件、代码和教学。系统处理横竖屏与软键盘避让。 |
-| 语言与教学 | CodeMirror 支持 TS、JS、JSX、TSX、JSON、HTML、CSS、Python、Dart 高亮。TS/JS 有文件级语法诊断。教程可离线验证源码，AI 指导读取当前文件和选区，支持跨文件定位、暂停、恢复、验证、差异确认、语音和进度保存。 |
+| 语言与教学 | CodeMirror 支持 TS、JS、JSX、TSX、JSON、HTML、CSS、Python、Dart 高亮，可切换自动换行。TS/JS 和 JSON、HTML、CSS、Python 有文件级语法标记。教程可离线验证源码，AI 指导可从实际目录查找候选文件，读取当前文件和选区，支持跨文件定位、暂停、恢复、验证、差异确认、语音和进度保存。 |
 | 凭据与权限 | Android Keystore 加密保存 API Key。发送源码前确认 OpenAI 上下文。敏感路径从 AI 上下文排除，敏感文件保存需要确认。文件和终端权限由原生模块持有，编辑器 WebView 只接收编辑消息。 |
-| 终端 | Android 系统 Toybox 真进程，支持 `pwd`、`ls`、`date`、`id`、`uname`、`df` 和 `sleep 1` 至 `sleep 30`，另有清屏、停止、复制。当前工作目录为应用私有目录，SAF 项目目录没有可供普通进程直接使用的绝对路径。 |
-| 运行与预览 | 本地浏览器运行无构建依赖的静态页面或电脑／自管主机已构建的 React `dist/`。预览页面可显示脚本运行错误，内置服务仅监听设备回环地址并限制资源来源。可打开自管主机的 HTTPS 预览。 |
+| 终端 | Android NDK PTY 承载 Toybox 进程，提供标准输入、合并输出、窗口尺寸、Ctrl+C、EOF、停止及退出码。支持 `tty`、`cat`、`wc`、`sort`、`pwd`、`ls`、`date`、`id`、`uname`、`df`、`sleep 1–30`，以及在私有终端目录创建新文件和目录。SAF 项目文件仍经 Android 文件接口访问。 |
+| 运行与预览 | 选择 React + TypeScript 模板可建立可编辑项目。源代码预览将已保存的模板 TS/TSX 编译到内存，用内置 ReactDOM 和设备回环服务在浏览器运行。也可打开设备上的开发服务器、外部 HTTPS 预览或已构建的静态 `dist/`。 |
 
-目前没有内置 Node.js、npm、Python 或 Dart 运行环境、交互式 shell / PTY、远程进程管理、Dart LSP 或 Android 设备内的通用 APK 编译器。React Native 项目需要 Metro 和对应的开发构建，独立 APK 需要 Android Gradle 工具链。终端会说明无法执行构建命令的原因。React Web 源码修改后，可在开发机运行 `npm ci` 与 `npm run build`，把最新的 `dist/` 同步进所授权的项目目录，再重新打开本地预览。
+### React 项目的四种运行方式
+
+1. **从源码运行 React 模板**。选择「新建 → React + TypeScript」，授权父目录，保存源码后选择「运行 → 从源码运行 React 模板」。页面脚本在浏览器运行。编译错误显示文件和行列号，运行时错误显示在页面。适用于模板内的相对导入、TS/JS 模块和 HTML 引用的 CSS，可使用 React、`react-dom/client` 和 React JSX 运行时。保存后重新运行生成新快照。
+2. **设备开发服务器**。在单独安装并由用户控制的 Termux 环境手动运行 `pkg install nodejs-lts npm`。按 Termux 提示授予共享存储权限，把项目复制到 Termux 私有工作目录，在那里运行 `npm install`、`npm run dev`，再在 IDE 的「打开设备开发服务器」输入 Vite 输出的 `http://127.0.0.1:5173`。构建日志和进程控制留在 Termux。修改 SAF 源码后需手动同步该副本。[Termux Node 包说明](https://github.com/termux/termux-packages/blob/master/packages/nodejs-lts/build.sh)
+3. **外部开发服务器**。在 Windows 或自管主机运行 `npm install`、`npm run dev`；USB 调试时可用 `adb reverse tcp:5173 tcp:5173`，然后在设备开发服务器入口打开回环地址。自管远程主机通过可信 HTTPS 提供预览，使用「打开远程 HTTPS 预览」。运行和构建日志在开发主机。模板使用 Vite 7，请按其 Node 版本要求选环境。[Vite 7 环境要求](https://v7.vite.dev/guide/)
+4. **静态网站或构建产物**。可打开静态入口或把开发主机 `npm run build` 产生的 `dist/` 同步进授权目录，再选择「预览静态网站或 dist/」。
+
+应用内 PTY 使用命令白名单和逐次执行确认。内置 Node/npm/npx、任意 shell、全屏终端程序、自动依赖安装、HMR、项目级类型诊断、Dart LSP 和远程进程控制留待后续。React Native 项目使用 Metro 与对应开发构建，Android Gradle 工具链生成独立 APK。
 
 ### Windows 生成 APK 并安装到平板
 

@@ -63,23 +63,70 @@ final class PreviewServer implements AutoCloseable {
     private final java.util.Set<Socket> clients = java.util.concurrent.ConcurrentHashMap.newKeySet();
     private final long expiry = System.nanoTime() + TimeUnit.MINUTES.toNanos(30);
 
+    private record Asset(String type, byte[] data) {}
+    @FunctionalInterface private interface Content { Asset load(String path) throws Exception; }
+
     PreviewServer(ProjectFiles files, ProjectFiles.PreviewRoot root) throws IOException {
+        this(path -> {
+            String type = TYPES.get(extension(path));
+            if (type == null) throw new IOException("Unsupported preview resource");
+            return new Asset(type, files.previewFile(root, path));
+        });
+    }
+
+    static PreviewServer forReactSnapshot(Map<String, String> source) throws IOException {
+        Map<String, Asset> assets = new java.util.HashMap<>();
+        int total = 0;
+        if (source.size() > 70 || !source.containsKey("index.html")) throw new IOException("预览快照无效");
+        for (var entry : source.entrySet()) {
+            String path = entry.getKey();
+            if (!path.equals("index.html") && !path.matches("(?:src|__ct)/(?:[a-zA-Z0-9_-][a-zA-Z0-9_.-]*/)*[a-zA-Z0-9_-][a-zA-Z0-9_.-]*")) {
+                throw new IOException("预览快照包含无效路径");
+            }
+            String ext = extension(path);
+            String type = ext.matches("[jt]sx?") ? TYPES.get("js") : TYPES.get(ext);
+            if (type == null) throw new IOException("预览快照包含不支持的文件类型");
+            byte[] data = entry.getValue().getBytes(StandardCharsets.UTF_8);
+            total += data.length;
+            if (total > 2 * 1024 * 1024) throw new IOException("预览快照超过 2 MiB");
+            assets.put(path, new Asset(type, data));
+        }
+        return new PreviewServer(path -> {
+            Asset exact = assets.get(path);
+            if (exact != null) return exact;
+            Asset candidate = null;
+            for (String suffix : new String[] {".tsx", ".ts", ".jsx", ".js", ".mjs", "/index.tsx", "/index.ts", "/index.jsx", "/index.js"}) {
+                Asset match = assets.get(path + suffix);
+                if (match == null) continue;
+                if (candidate != null) throw new IOException("Ambiguous module");
+                candidate = match;
+            }
+            if (candidate == null) throw new IOException("Missing module");
+            return candidate;
+        });
+    }
+
+    private static String extension(String path) {
+        return path.substring(path.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
+    }
+
+    private PreviewServer(Content content) throws IOException {
         server = new ServerSocket(0, 16, InetAddress.getByAddress(new byte[] {127, 0, 0, 1}));
         address = "127.0.0.1:" + server.getLocalPort();
         cookie = "codetutor_" + server.getLocalPort() + "=" + token;
         server.setSoTimeout(1000);
-        new Thread(() -> serve(files, root), "code-tutor-preview").start();
+        new Thread(() -> serve(content), "code-tutor-preview").start();
     }
 
     String url() { return "http://" + address + "/__open/" + token; }
 
-    private void serve(ProjectFiles files, ProjectFiles.PreviewRoot root) {
+    private void serve(Content content) {
         try {
             while (!server.isClosed() && System.nanoTime() < expiry) {
                 try {
                     Socket client = server.accept();
                     clients.add(client);
-                    try { requests.execute(() -> respond(client, files, root)); }
+                    try { requests.execute(() -> respond(client, content)); }
                     catch (java.util.concurrent.RejectedExecutionException busy) { clients.remove(client); client.close(); }
                 } catch (SocketTimeoutException idle) { /* Check the preview lifetime. */ }
             }
@@ -100,7 +147,7 @@ final class PreviewServer implements AutoCloseable {
         throw new IOException("Incomplete HTTP request");
     }
 
-    private void respond(Socket client, ProjectFiles files, ProjectFiles.PreviewRoot root) {
+    private void respond(Socket client, Content content) {
         try (client) {
             client.setSoTimeout(2000);
             long deadline = System.nanoTime() + TimeUnit.SECONDS.toNanos(3);
@@ -146,23 +193,21 @@ final class PreviewServer implements AutoCloseable {
                     reply(output, "404 Not Found", "", new byte[0]); return;
                 }
             }
-            String extension = path.substring(path.lastIndexOf('.') + 1).toLowerCase(Locale.ROOT);
             if (accept.contains("text/html") && !path.substring(path.lastIndexOf('/') + 1).contains(".")) {
                 path = "index.html";
-                extension = "html";
             }
-            String type = TYPES.get(extension);
-            if (type == null || path.indexOf('\\') >= 0) { reply(output, "404 Not Found", "", new byte[0]); return; }
-            byte[] bytes;
-            try { bytes = files.previewFile(root, path); }
+            if (path.indexOf('\\') >= 0) { reply(output, "404 Not Found", "", new byte[0]); return; }
+            Asset asset;
+            try { asset = content.load(path); }
             catch (Exception error) { reply(output, "404 Not Found", "", new byte[0]); return; }
-            if (extension.equals("html")) {
+            byte[] bytes = asset.data();
+            if (extension(path).equals("html")) {
                 String html = new String(bytes, StandardCharsets.UTF_8);
                 java.util.regex.Matcher head = java.util.regex.Pattern.compile("(?i)<head(?:\\s+[^>]*)?>").matcher(html);
                 int insertion = head.find() ? head.end() : 0;
                 bytes = (html.substring(0, insertion) + ERROR_PANEL + html.substring(insertion)).getBytes(StandardCharsets.UTF_8);
             }
-            reply(output, "200 OK", "Content-Type: " + type + "\r\n", bytes);
+            reply(output, "200 OK", "Content-Type: " + asset.type() + "\r\n", bytes);
         } catch (IOException | IllegalArgumentException ignored) {
             // A malformed request or closed browser socket cannot affect project data.
         } finally {

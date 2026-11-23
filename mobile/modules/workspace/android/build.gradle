@@ -7,4 +7,11 @@ version = '0.1.0'
 android {
   namespace "com.chengyang.codetutor.workspace"
   defaultConfig { versionCode 1; versionName "0.1.0" }
+  ndkVersion rootProject.ext.ndkVersion
+  externalNativeBuild {
+    cmake {
+      path "src/main/cpp/CMakeLists.txt"
+      version "3.22.1"
+    }
+  }
 }

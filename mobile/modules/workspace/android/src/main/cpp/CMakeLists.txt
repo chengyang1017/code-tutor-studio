@@ -1,0 +1,5 @@
+cmake_minimum_required(VERSION 3.22.1)
+project(tutor_pty LANGUAGES CXX)
+add_library(tutor_pty SHARED terminal.cpp)
+target_compile_features(tutor_pty PRIVATE cxx_std_17)
+target_compile_options(tutor_pty PRIVATE -Wall -Wextra -Werror)

@@ -3,7 +3,7 @@ import test from 'node:test';
 import { isProjectPath, isSensitivePath, isTeachingStep, isTeachingVerification } from '../shared/teaching/session.ts';
 import { reactTodoLessons } from '../shared/teaching/react_todo_course.ts';
 import { isClearCommand } from '../shared/core/terminal.ts';
-import { decodeEditorEvent, maxEditorLength } from '../mobile/src/editor/protocol.ts';
+import { applyEditorChanges, decodeEditorEvent, maxEditorLength } from '../mobile/src/editor/protocol.ts';
 
 test('teaching steps accept safe project-relative paths and reject malformed data', () => {
   const step = { file: 'src/待办.tsx', title: '写组件', instruction: '返回一个 JSX 标题', line: 1 };
@@ -44,4 +44,15 @@ test('the editor bridge rejects unknown commands and invalid selection bounds', 
 test('screen clearing never expands terminal commands or arguments', () => {
   assert.equal(isClearCommand(' Clear-Host '), true);
   assert.equal(isClearCommand('clear && date'), false);
+});
+
+test('editor deltas use UTF-16 offsets and reject overlaps or out-of-range selections', () => {
+  const message = {
+    type: 'delta', id: 'tab', beforeLength: 5, changes: [{ from: 1, to: 3, text: '🙂' }, { from: 4, to: 5, text: 'z' }],
+    selection: { from: 5, to: 5 },
+  };
+  assert.deepEqual(decodeEditorEvent(JSON.stringify(message)), message);
+  assert.equal(applyEditorChanges('a😀bc', message.changes), 'a🙂bz');
+  assert.equal(decodeEditorEvent(JSON.stringify({ ...message, changes: [message.changes[0], { from: 2, to: 4, text: 'q' }] })), undefined);
+  assert.equal(decodeEditorEvent(JSON.stringify({ ...message, selection: { from: 5, to: 6 } })), undefined);
 });

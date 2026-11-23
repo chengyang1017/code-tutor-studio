@@ -99,6 +99,12 @@ class WorkspaceModule : Module() {
                 url.port in -1..65535 && value.length <= 2048) { "仅支持无内嵌凭据的 HTTPS 地址" }
             url.toASCIIString()
         }
+        AsyncFunction("validateDevicePreview") { value: String ->
+            val url = java.net.URI(value)
+            require(url.scheme == "http" && url.host == "127.0.0.1" && url.userInfo == null &&
+                url.port in 1024..65535 && value.length <= 2048) { "使用设备上的 http://127.0.0.1:端口 地址" }
+            url.toASCIIString()
+        }
         AsyncFunction("getState") { id: String -> project.getState(id) }
         AsyncFunction("putState") { id: String, state: String -> project.putState(id, state) }
         AsyncFunction("terminalDirectory") { terminal.cwd() }
@@ -112,7 +118,9 @@ class WorkspaceModule : Module() {
                 })
             }
         }
-        AsyncFunction("stop") { terminal.stop() }
+        AsyncFunction("terminalInput") { id: String, text: String -> terminal.send(id, text) }
+        AsyncFunction("resizeTerminal") { rows: Int, columns: Int -> terminal.resize(rows, columns) }
+        AsyncFunction("stop") { id: String -> terminal.stop(id) }
         AsyncFunction("preview") { id: String, confirmed: Boolean ->
             require(confirmed) { "浏览器执行项目代码前需要确认" }
             synchronized(this@WorkspaceModule) {
@@ -121,6 +129,16 @@ class WorkspaceModule : Module() {
             }
         }
         AsyncFunction("stopPreview") { stopPreview() }
+        AsyncFunction("reactPreview") { id: String, assets: Map<String, String>, confirmed: Boolean ->
+            require(confirmed) { "浏览器执行项目代码前需要确认" }
+            synchronized(this@WorkspaceModule) {
+                project.requireActive(id)
+                val next = PreviewServer.forReactSnapshot(assets)
+                stopPreview()
+                preview = next
+                next.url()
+            }
+        }
 
         OnDestroy {
             stopPreview()

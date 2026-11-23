@@ -1,5 +1,5 @@
 import { basicSetup } from 'codemirror';
-import { EditorState, StateEffect, StateField, Transaction } from '@codemirror/state';
+import { Compartment, EditorState, StateEffect, StateField, Transaction } from '@codemirror/state';
 import { Decoration, EditorView, keymap } from '@codemirror/view';
 import type { DecorationSet } from '@codemirror/view';
 import { undo, redo } from '@codemirror/commands';
@@ -8,12 +8,13 @@ import { json } from '@codemirror/lang-json';
 import { html } from '@codemirror/lang-html';
 import { css } from '@codemirror/lang-css';
 import { python } from '@codemirror/lang-python';
-import { HighlightStyle, StreamLanguage, syntaxHighlighting } from '@codemirror/language';
+import { HighlightStyle, StreamLanguage, syntaxHighlighting, syntaxTree } from '@codemirror/language';
 import { tags } from '@lezer/highlight';
 import { dart } from '@codemirror/legacy-modes/mode/clike';
-import { setDiagnostics } from '@codemirror/lint';
+import { linter, lintGutter, setDiagnostics } from '@codemirror/lint';
+import type { Diagnostic } from '@codemirror/lint';
 import { maxEditorLength } from '../src/editor/protocol';
-import type { EditorCommand, EditorEvent, Selection } from '../src/editor/protocol';
+import type { Change, EditorCommand, EditorEvent, Selection } from '../src/editor/protocol';
 
 declare global {
   interface Window {
@@ -24,6 +25,7 @@ declare global {
 
 const send = (event: EditorEvent) => window.ReactNativeWebView?.postMessage(JSON.stringify(event));
 const highlight = StateEffect.define<Selection | null>();
+const wrap = new Compartment();
 const marked = StateField.define<DecorationSet>({
   create: () => Decoration.none,
   update(value, transaction) {
@@ -82,7 +84,15 @@ function selection() {
 function create(text: string, file: string, readOnly: boolean) {
   return EditorState.create({ doc: text, extensions: [
     keymap.of([{ key: 'Mod-s', run: () => { send({ type: 'save', id }); return true; } }]),
-    basicSetup, language(file), theme, syntaxHighlighting(codeColors), marked,
+    basicSetup, language(file), theme, syntaxHighlighting(codeColors), marked, wrap.of([]), lintGutter(),
+    /\.(json|css|html?|py)$/i.test(file) ? linter(editor => {
+      const problems: Diagnostic[] = [];
+      syntaxTree(editor.state).iterate({ enter(node) {
+        if (problems.length >= 100) return false;
+        if (node.type.isError) problems.push({ from: node.from, to: node.to, severity: 'error', message: '此处存在语法错误' });
+      } });
+      return problems;
+    }) : [],
     EditorState.tabSize.of(2), EditorState.readOnly.of(readOnly),
     EditorView.editable.of(!readOnly), EditorView.contentAttributes.of({ 'aria-label': '源代码编辑器' }),
     EditorState.transactionFilter.of(transaction => {
@@ -92,7 +102,12 @@ function create(text: string, file: string, readOnly: boolean) {
     }),
     EditorView.updateListener.of(update => {
       views.set(id, update.state);
-      if (update.docChanged) send({ type: 'change', id, text: update.state.doc.toString(), selection: selection() });
+      if (update.docChanged) {
+        const changes: Change[] = [];
+        update.changes.iterChanges((from, to, _fromB, _toB, insert) => changes.push({ from, to, text: insert.toString() }));
+        if (changes.length <= 128) send({ type: 'delta', id, beforeLength: update.startState.doc.length, changes, selection: selection() });
+        else send({ type: 'change', id, text: update.state.doc.toString(), selection: selection() });
+      }
       else if (update.selectionSet) send({ type: 'selection', id, selection: selection() });
     }),
   ] });
@@ -100,6 +115,14 @@ function create(text: string, file: string, readOnly: boolean) {
 
 window.codeTutorEditor = {
   receive(command) {
+    if (command.type === 'snapshot') {
+      const state = views.get(command.id);
+      if (state) {
+        const { from, to } = state.selection.main;
+        send({ type: 'change', id: command.id, text: state.doc.toString(), selection: { from, to } });
+      }
+      return;
+    }
     if (command.type === 'forget') {
       views.delete(command.id);
       positions.delete(command.id);
@@ -148,6 +171,7 @@ window.codeTutorEditor = {
         break;
       }
       case 'diagnostics': view.dispatch(setDiagnostics(view.state, command.diagnostics)); break;
+      case 'wrap': view.dispatch({ effects: wrap.reconfigure(command.enabled ? EditorView.lineWrapping : []) }); break;
       case 'undo': undo(view); break;
       case 'redo': redo(view); break;
     }

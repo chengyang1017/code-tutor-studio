@@ -114,6 +114,10 @@ final class ProjectFiles {
         if (tree == null || root == null || !key.equals(key())) throw new IOException("项目已切换，请重新打开文件");
     }
 
+    synchronized void requireActive(String id) throws Exception {
+        check(id);
+    }
+
     private String key() throws Exception {
         return hash((tree + "\n" + root.id()).getBytes(StandardCharsets.UTF_8));
     }

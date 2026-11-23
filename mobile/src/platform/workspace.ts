@@ -26,14 +26,18 @@ export interface ProjectFileSystem {
 export interface TerminalAdapter {
   terminalDirectory(): Promise<string>;
   run(id: string, command: string, confirmed: boolean): Promise<void>;
-  stop(): Promise<void>;
+  terminalInput(id: string, text: string): Promise<void>;
+  resizeTerminal(rows: number, columns: number): Promise<void>;
+  stop(id: string): Promise<void>;
   addListener(name: 'terminalEvent', listener: (event: TerminalEvent) => void): { remove(): void };
 }
 
 export interface LocalExecutionAdapter {
   preview(id: string, confirmed: boolean): Promise<string>;
+  reactPreview(id: string, assets: Record<string, string>, confirmed: boolean): Promise<string>;
   stopPreview(): Promise<void>;
   validateRemotePreview(url: string): Promise<string>;
+  validateDevicePreview(url: string): Promise<string>;
 }
 
 export const workspace = requireNativeModule<ProjectFileSystem & TerminalAdapter & LocalExecutionAdapter>('TutorWorkspace');

@@ -11,6 +11,8 @@ jest.mock('./platform/workspace', () => ({
     addListener: jest.fn(() => ({ remove: jest.fn() })),
     run: jest.fn(async () => undefined),
     stop: jest.fn(async () => undefined),
+    terminalInput: jest.fn(async () => undefined),
+    resizeTerminal: jest.fn(async () => undefined),
   },
 }));
 
@@ -25,6 +27,12 @@ test('terminal waits for confirmation and displays adapter output and exit statu
 
     alert.mock.calls.at(-1)?.[2]?.find(button => button.text === '运行')?.onPress?.();
     await waitFor(() => expect(workspace.run).toHaveBeenCalledWith('1', 'pwd', true));
+
+    fireEvent.changeText(screen.getByLabelText('进程标准输入'), 'test input');
+    fireEvent.press(screen.getByRole('button', { name: '发送' }));
+    await waitFor(() => expect(workspace.terminalInput).toHaveBeenCalledWith('1', 'test input\n'));
+    fireEvent.press(screen.getByRole('button', { name: 'EOF' }));
+    await waitFor(() => expect(workspace.terminalInput).toHaveBeenCalledWith('1', '\u0004'));
 
     const listener = jest.mocked(workspace.addListener).mock.calls[0][1];
     const output: TerminalEvent = { id: '1', kind: 'output', text: '/private/terminal\n' };

@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from 'react';
 import { isSensitivePath } from '../../../shared/teaching/session';
 import type { EditorEvent, Selection } from '../editor/protocol';
+import { applyEditorChanges } from '../editor/protocol';
 import type { EditorHandle } from '../editor/Editor';
 import { workspace } from '../platform/workspace';
 import type { Entry, FileSnapshot, Project } from '../platform/workspace';
 import { confirm, errorMessage } from './feedback';
+import { createReactFiles } from '../platform/reactProject';
 
 type Tab = FileSnapshot & { id: string; path: string; saved: string; selection: Selection };
 type OpenProject = (project: Project) => Promise<void>;
@@ -28,6 +30,7 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
   const editor = useRef<EditorHandle>(null);
   const writeLocks = useRef(new Set<string>());
   const lastConflict = useRef(new Set<string>());
+  const pendingSnapshots = useRef(new Set<string>());
   const switching = useRef(true);
 
   function updateTabs(update: (previous: Tab[]) => Tab[]) {
@@ -49,6 +52,7 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
     updateTabs(() => []);
     activate('');
     lastConflict.current.clear();
+    pendingSnapshots.current.clear();
     await Promise.all([refresh(next, ''), loadLesson(next)]);
   }
 
@@ -64,7 +68,7 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
     });
   }, []);
 
-  async function choose(name: string | null) {
+  async function choose(name: string | null, reactTemplate = false) {
     if (switching.current || writeLocks.current.size > 0) return;
     switching.current = true;
     setBusy(true);
@@ -72,7 +76,13 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
       if (tabsRef.current.some(tab => tab.saved !== tab.text) &&
           !await confirm('切换项目', '丢弃当前项目中的未保存编辑？', '丢弃并选择', true)) return;
       const next = await workspace.pick(name);
-      if (next) await install(next);
+      if (next) {
+        await install(next);
+        if (name && reactTemplate) {
+          try { await createReactFiles(workspace, next); }
+          finally { await refresh(next, ''); }
+        }
+      }
     } finally {
       switching.current = false;
       setBusy(false);
@@ -120,6 +130,7 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
     const expected = projectRef.current;
     const draft = tabsRef.current.find(item => item.path === path);
     if (!expected || !draft || draft.saved === draft.text || draft.readOnly || switching.current ||
+        pendingSnapshots.current.has(draft.id) ||
         writeLocks.current.has(path) || (automatic && (lastConflict.current.has(path) || isSensitivePath(path)))) return;
     writeLocks.current.add(path);
     try {
@@ -139,6 +150,7 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
   function removeTabs(path: string) {
     for (const tab of tabsRef.current.filter(item => containsPath(path, item.path))) {
       editor.current?.send({ type: 'forget', id: tab.id });
+      pendingSnapshots.current.delete(tab.id);
     }
     updateTabs(items => items.filter(item => !containsPath(path, item.path)));
     if (containsPath(path, activeRef.current)) activate(tabsRef.current.at(-1)?.path ?? '');
@@ -212,11 +224,20 @@ export function useProject(report: (message: string) => void, loadLesson: OpenPr
     if (event.type === 'save') { void save(file.path); return; }
     if (event.type === 'limit') { report('编辑内容超过 512 KiB 上限。'); return; }
     if (event.type === 'stale') { report('编辑缓冲区已变化，修改未应用。请重新预览。'); return; }
-    if (event.type === 'change' && !file.readOnly) {
-      updateTabs(items => items.map(tab => tab.path === file.path ? { ...tab, text: event.text, selection: event.selection } : tab));
+    if ((event.type === 'delta' || event.type === 'change') && !file.readOnly) {
+      if (event.type === 'delta' && (event.beforeLength !== file.text.length || pendingSnapshots.current.has(file.id))) {
+        if (!pendingSnapshots.current.has(file.id)) {
+          pendingSnapshots.current.add(file.id);
+          editor.current?.send({ type: 'snapshot', id: file.id });
+        }
+        return;
+      }
+      const text = event.type === 'change' ? event.text : applyEditorChanges(file.text, event.changes);
+      pendingSnapshots.current.delete(file.id);
+      updateTabs(items => items.map(tab => tab.id === file.id ? { ...tab, text, selection: event.selection } : tab));
     }
     if (event.type === 'selection' && event.selection.to <= file.text.length) {
-      updateTabs(items => items.map(tab => tab.path === file.path ? { ...tab, selection: event.selection } : tab));
+      tabsRef.current = tabsRef.current.map(tab => tab.id === file.id ? { ...tab, selection: event.selection } : tab);
     }
   }
 
